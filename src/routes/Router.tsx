@@ -7,8 +7,9 @@ import { Messages } from "../pages/Messages/Messages";
 import { CreateVideo } from "../pages/CreateVideo/CreateVideo";
 import { MyProfile } from "../pages/MyProfile/MyProfile";
 import { Chat } from "../pages/Chat/Chat";
-import { Live } from "../pages/Live/Live";
 import { Search } from "../pages/Search/Search";
+import { Live } from "../pages/Live/Live";
+import { Friends } from "../pages/Friends/Friends";
 import { useNavigation } from "./NavigationContext";
 import { BottomNavigation } from "../components/BottomNavigation/BottomNavigation";
 
@@ -33,16 +34,18 @@ export const Router = () => {
         return <MyProfile />;
       case "Chat":
         return <Chat />;
-      case "Live":
-        return <Live />;
       case "Search":
         return <Search />;
+      case "Live":
+        return <Live />;
+      case "Friends":
+        return <Friends />;
       default:
         return <Login />;
     }
   };
 
-  const showBottomNav = ["Home", "Messages", "CreateVideo", "MyProfile", "Live"].includes(currentScreen);
+  const showBottomNav = ["Home", "Messages", "CreateVideo", "MyProfile", "Live", "Friends"].includes(currentScreen);
 
   return (
     <>

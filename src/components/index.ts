@@ -4,4 +4,5 @@ export { Comments } from './Comments/Comments';
 export { ShareModal } from './ShareModal/ShareModal';
 export { BottomNavigation } from './BottomNavigation/BottomNavigation';
 export { TopBar } from './TopBar/TopBar';
+export { BattleItem } from './BattleItem/BattleItem';
 

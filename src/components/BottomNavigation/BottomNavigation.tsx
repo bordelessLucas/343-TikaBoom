@@ -10,7 +10,7 @@ export const BottomNavigation = () => {
 
     const navItems = [
         { id: 'home', label: 'Início', icon: 'home', screen: 'Home' as const },
-        { id: 'friends', label: 'Amigos', icon: 'people', screen: null },
+        { id: 'friends', label: 'Amigos', icon: 'people', screen: 'Friends' as const },
         { id: 'create', label: '', icon: 'add', screen: 'CreateVideo' as const },
         { id: 'messages', label: 'Mensagens', icon: 'message', screen: 'Messages' as const },
         { id: 'profile', label: 'Perfil', icon: 'person', screen: 'MyProfile' as const },

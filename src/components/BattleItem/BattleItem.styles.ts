@@ -3,14 +3,22 @@ import { StyleSheet, Dimensions } from 'react-native';
 const { width, height } = Dimensions.get('window');
 const VIDEO_WIDTH = width / 2;
 const TOP_BAR_HEIGHT = 60;
+const BOTTOM_NAV_HEIGHT = 85;
 const AVAILABLE_HEIGHT = height - TOP_BAR_HEIGHT;
 const VIDEO_HEIGHT = AVAILABLE_HEIGHT * 1.2;
-const CHAT_HEIGHT_COLLAPSED = AVAILABLE_HEIGHT * 0.15; // 15% quando fechado
-const CHAT_HEIGHT_OPEN = AVAILABLE_HEIGHT * 0.3; // 30% quando aberto
+const MIN_CHAT_HEIGHT = AVAILABLE_HEIGHT * 0.15;
+const MAX_CHAT_HEIGHT = AVAILABLE_HEIGHT * 0.7;
+const DEFAULT_OPEN_HEIGHT = AVAILABLE_HEIGHT * 0.3;
 
 export const styles = StyleSheet.create({
     container: {
-        flex: 1,
+        width,
+        height,
+        flexDirection: 'row',
+        position: 'relative',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#0a0a1a',
     },
     videoWrapper: {
         width: VIDEO_WIDTH,
@@ -35,22 +43,9 @@ export const styles = StyleSheet.create({
         shadowOpacity: 0.6,
         shadowRadius: 12,
         elevation: 12,
-    },
-    frameBorderLeft: {
         borderRightWidth: 3,
-        borderRightColor: '#ff2d6f',
         borderTopWidth: 2,
-        borderTopColor: '#ff2d6f',
         borderBottomWidth: 2,
-        borderBottomColor: '#ff2d6f',
-    },
-    frameBorderRight: {
-        borderLeftWidth: 3,
-        borderLeftColor: '#37a0ff',
-        borderTopWidth: 2,
-        borderTopColor: '#37a0ff',
-        borderBottomWidth: 2,
-        borderBottomColor: '#37a0ff',
     },
     frameInner: {
         width: '100%',
@@ -86,12 +81,6 @@ export const styles = StyleSheet.create({
         backgroundColor: 'rgba(0, 0, 0, 0.7)',
         borderWidth: 1.5,
     },
-    labelBadgeLeft: {
-        borderColor: '#ff2d6f',
-    },
-    labelBadgeRight: {
-        borderColor: '#37a0ff',
-    },
     labelText: {
         color: '#ffffff',
         fontSize: 13,
@@ -113,6 +102,45 @@ export const styles = StyleSheet.create({
     },
     vsImage: {
         width: '100%',
+        height: '100%',
+    },
+    scoreContainer: {
+        position: 'absolute',
+        top: TOP_BAR_HEIGHT + 20,
+        left: 0,
+        right: 0,
+        paddingHorizontal: 16,
+        zIndex: 25,
+    },
+    scoreRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    scoreText: {
+        fontSize: 14,
+        fontWeight: '800',
+        flex: 1,
+    },
+    timerText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '800',
+        paddingHorizontal: 12,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.3)',
+    },
+    progressBar: {
+        height: 6,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        borderRadius: 3,
+        overflow: 'hidden',
+        flexDirection: 'row',
+    },
+    progressFill: {
         height: '100%',
     },
     dividerLineLeft: {
@@ -146,7 +174,7 @@ export const styles = StyleSheet.create({
     },
     chatContainerWrapper: {
         position: 'absolute',
-        bottom: 0,
+        bottom: BOTTOM_NAV_HEIGHT + 10,
         left: 0,
         right: 0,
         width: '100%',
@@ -177,6 +205,7 @@ export const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: 'rgba(255, 45, 111, 0.4)',
         overflow: 'hidden',
+        flexDirection: 'column',
     },
     chatDragHandle: {
         width: '100%',
@@ -208,9 +237,10 @@ export const styles = StyleSheet.create({
         fontWeight: '700',
         textAlign: 'center',
     },
-    chatKeyboardView: {
+    chatContentWrapper: {
         flex: 1,
-        minHeight: 150,
+        flexDirection: 'column',
+        minHeight: 0,
     },
     chatHeader: {
         flexDirection: 'row',
@@ -221,6 +251,7 @@ export const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(255, 45, 111, 0.3)',
         minHeight: 48,
+        flexShrink: 0,
     },
     chatHeaderLeft: {
         flexDirection: 'row',
@@ -256,7 +287,6 @@ export const styles = StyleSheet.create({
         paddingVertical: 5,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#ff2d6f',
         minWidth: 32,
         alignItems: 'center',
         justifyContent: 'center',
@@ -270,9 +300,10 @@ export const styles = StyleSheet.create({
         flex: 1,
         paddingHorizontal: 16,
         paddingVertical: 8,
+        maxHeight: '100%',
     },
     chatContent: {
-        paddingBottom: 12,
+        paddingBottom: 8,
         flexGrow: 1,
     },
     chatMessage: {
@@ -285,7 +316,6 @@ export const styles = StyleSheet.create({
         marginBottom: 4,
     },
     chatUser: {
-        color: '#ff2d6f',
         fontSize: 13,
         fontWeight: '800',
         marginRight: 6,
@@ -302,12 +332,14 @@ export const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 12,
-        paddingVertical: 10,
-        gap: 10,
+        paddingVertical: 12,
+        gap: 8,
         borderTopWidth: 1,
         borderTopColor: 'rgba(255, 45, 111, 0.2)',
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
-        minHeight: 60,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        minHeight: 64,
+        maxHeight: 64,
+        zIndex: 100,
     },
     chatInput: {
         flex: 1,
@@ -318,7 +350,6 @@ export const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 14,
         borderWidth: 1.5,
-        borderColor: 'rgba(255, 45, 111, 0.3)',
         minHeight: 40,
         maxHeight: 40,
     },
@@ -340,4 +371,176 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    giftButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        overflow: 'hidden',
+        shadowColor: '#ff2d6f',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.6,
+        shadowRadius: 6,
+        elevation: 6,
+        flexShrink: 0,
+    },
+    giftButtonGradient: {
+        width: '100%',
+        height: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    giftButtonEmoji: {
+        fontSize: 20,
+    },
+    giftAnimation: {
+        position: 'absolute',
+        width: 60,
+        height: 60,
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+    },
+    giftEmoji: {
+        fontSize: 50,
+    },
+    giftsModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        justifyContent: 'flex-end',
+        zIndex: 9999,
+        elevation: 9999,
+    },
+    giftsModalContent: {
+        backgroundColor: 'rgba(10, 10, 26, 0.95)',
+        borderTopLeftRadius: 25,
+        borderTopRightRadius: 25,
+        maxHeight: height * 0.6,
+        paddingBottom: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.5,
+        shadowRadius: 12,
+        elevation: 21,
+        zIndex: 10000,
+    },
+    giftsModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 45, 111, 0.3)',
+    },
+    giftsModalTitle: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '800',
+    },
+    giftsModalClose: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    giftsList: {
+        flex: 1,
+    },
+    giftsListContent: {
+        padding: 16,
+        gap: 12,
+    },
+    giftItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        borderRadius: 16,
+        padding: 16,
+        gap: 16,
+    },
+    giftItemEmojiContainer: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    giftItemEmoji: {
+        fontSize: 36,
+    },
+    giftItemInfo: {
+        flex: 1,
+    },
+    giftItemName: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+        marginBottom: 4,
+    },
+    giftItemPrice: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 14,
+    },
+    sideSelectionContainer: {
+        padding: 20,
+        alignItems: 'center',
+    },
+    sideSelectionTitle: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '700',
+        marginBottom: 24,
+        textAlign: 'center',
+    },
+    sideSelectionButtons: {
+        flexDirection: 'row',
+        gap: 16,
+        width: '100%',
+        marginBottom: 20,
+    },
+    sideSelectionButton: {
+        flex: 1,
+        borderRadius: 20,
+        borderWidth: 2,
+        overflow: 'hidden',
+        minHeight: 180,
+    },
+    sideSelectionGradient: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+        gap: 12,
+    },
+    sideSelectionEmoji: {
+        fontSize: 48,
+        marginBottom: 8,
+    },
+    sideSelectionName: {
+        fontSize: 18,
+        fontWeight: '800',
+        marginBottom: 4,
+    },
+    sideSelectionHandle: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 14,
+    },
+    backButton: {
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.2)',
+    },
+    backButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+    },
 });
+
+

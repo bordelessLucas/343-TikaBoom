@@ -74,7 +74,7 @@ const mockVideos = [
 export const Home = () => {
     const { navigate, currentScreen } = useNavigation();
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [activeTab, setActiveTab] = useState<'forYou' | 'live'>('forYou');
+    const [activeTab, setActiveTab] = useState<'forYou' | 'lives' | 'battle'>('forYou');
     const flatListRef = useRef<FlatList>(null);
 
     useEffect(() => {
@@ -83,7 +83,7 @@ export const Home = () => {
         }
     }, [currentScreen]);
 
-    const handleTabChange = (tab: 'forYou' | 'live') => {
+    const handleTabChange = (tab: 'forYou' | 'lives' | 'battle') => {
         setActiveTab(tab);
     };
 

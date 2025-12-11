@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
 
-export type ScreenName = "Login" | "Register" | "Home" | "MyBets" | "ProfileConfig" | "Wallet" | "Profile" | "Messages" | "CreateVideo" | "MyProfile" | "Chat" | "Live" | "Search";
+export type ScreenName = "Login" | "Register" | "Home" | "MyBets" | "ProfileConfig" | "Wallet" | "Profile" | "Messages" | "CreateVideo" | "MyProfile" | "Chat" | "Live" | "Search" | "Friends";
 
 interface NavigationContextType {
   currentScreen: ScreenName;
