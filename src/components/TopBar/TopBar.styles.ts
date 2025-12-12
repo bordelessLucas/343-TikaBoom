@@ -1,13 +1,17 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform, Dimensions } from 'react-native';
+
+const { height } = Dimensions.get('window');
+const isMobile = Platform.OS === 'ios' || Platform.OS === 'android';
+const isSmallDevice = height < 800;
 
 export const styles = StyleSheet.create({
     gradientContainer: {
         position: 'absolute',
-        top: 0,
+        top: isMobile ? (Platform.OS === 'ios' ? (isSmallDevice ? 50 : 60) : (isSmallDevice ? 40 : 50)) : 0,
         left: 0,
         right: 0,
         zIndex: 100,
-        paddingTop: 35,
+        paddingTop: isMobile ? (Platform.OS === 'ios' ? (isSmallDevice ? 20 : 25) : (isSmallDevice ? 15 : 20)) : 55,
         paddingBottom: 12,
     },
     container: {

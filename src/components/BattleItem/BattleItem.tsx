@@ -63,6 +63,8 @@ interface BattleItemProps {
     isActive: boolean;
     chatMessages: ChatMessage[];
     onSendMessage: (message: string) => void;
+    onChatDragStart?: () => void;
+    onChatDragEnd?: () => void;
 }
 
 export const BattleItem = ({
@@ -76,6 +78,8 @@ export const BattleItem = ({
     isActive,
     chatMessages,
     onSendMessage,
+    onChatDragStart,
+    onChatDragEnd,
 }: BattleItemProps) => {
     const videoARef = useRef<Video>(null);
     const videoBRef = useRef<Video>(null);
@@ -98,6 +102,7 @@ export const BattleItem = ({
     const dragY = useRef(0);
     const currentHeight = useRef(MIN_CHAT_HEIGHT);
     const [chatHeight, setChatHeight] = useState(MIN_CHAT_HEIGHT);
+    const isDraggingRef = useRef(false);
     
     // Animações para os scores
     const animatedScoreA = useRef(new Animated.Value(0)).current;
@@ -174,12 +179,29 @@ export const BattleItem = ({
     const panResponder = useRef(
         PanResponder.create({
             onStartShouldSetPanResponder: () => true,
-            onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 5,
+            onStartShouldSetPanResponderCapture: () => true, // Captura imediatamente quando o toque começa no handle
+            onMoveShouldSetPanResponder: (_, gestureState) => {
+                // Captura o gesto se o movimento vertical for maior que o horizontal
+                // Isso prioriza o arraste do chat sobre o scroll do vídeo
+                return Math.abs(gestureState.dy) > Math.abs(gestureState.dx) && Math.abs(gestureState.dy) > 3;
+            },
+            onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+                // Captura o gesto antes que outros componentes (como a FlatList) o processem
+                // Prioriza quando o movimento é principalmente vertical (arraste do chat)
+                // Usa um threshold menor para capturar mais cedo
+                return Math.abs(gestureState.dy) > Math.abs(gestureState.dx) && Math.abs(gestureState.dy) > 2;
+            },
+            onPanResponderTerminationRequest: () => false, // Não permite que outros componentes terminem o gesto
             onPanResponderGrant: () => {
                 chatHeightAnim.setOffset(currentHeight.current);
                 chatHeightAnim.setValue(0);
             },
             onPanResponderMove: (_, gestureState) => {
+                // Desabilita o scroll da FlatList quando começar a mover verticalmente
+                if (!isDraggingRef.current && Math.abs(gestureState.dy) > 5 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx)) {
+                    isDraggingRef.current = true;
+                    onChatDragStart?.();
+                }
                 const newHeight = currentHeight.current - gestureState.dy;
                 const clampedHeight = Math.max(MIN_CHAT_HEIGHT, Math.min(MAX_CHAT_HEIGHT, newHeight));
                 chatHeightAnim.setValue(clampedHeight - currentHeight.current);
@@ -208,6 +230,19 @@ export const BattleItem = ({
                     tension: 50,
                     friction: 8,
                 }).start();
+                // Notifica que o arraste do chat terminou para reabilitar o scroll da FlatList
+                if (isDraggingRef.current) {
+                    isDraggingRef.current = false;
+                    onChatDragEnd?.();
+                }
+            },
+            onPanResponderTerminate: () => {
+                // Se o gesto for terminado por algum motivo, reabilita o scroll
+                chatHeightAnim.flattenOffset();
+                if (isDraggingRef.current) {
+                    isDraggingRef.current = false;
+                    onChatDragEnd?.();
+                }
             },
         })
     ).current;
@@ -626,8 +661,8 @@ export const BattleItem = ({
                     style={[
                         styles.giftAnimation,
                         {
-                            left: Animated.subtract(gift.x, 30),
-                            top: Animated.subtract(gift.y, 30),
+                            left: gift.x,
+                            top: gift.y,
                             transform: [
                                 { scale: gift.scale },
                                 {
@@ -666,103 +701,98 @@ export const BattleItem = ({
                             }}
                         />
                     )}
-                    <View style={styles.giftsModalContent} pointerEvents="box-none">
-                        <View
-                            style={{ flex: 1 }}
-                            pointerEvents="box-none"
-                        >
-                            <View style={styles.giftsModalHeader}>
-                                <Text style={styles.giftsModalTitle}>
-                                    {selectedGift ? 'Escolha para quem enviar' : 'Enviar Presente'}
+                    <View style={styles.giftsModalContent}>
+                        <View style={styles.giftsModalHeader}>
+                            <Text style={styles.giftsModalTitle}>
+                                {selectedGift ? 'Escolha para quem enviar' : 'Enviar Presente'}
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setShowGiftsModal(false);
+                                    setSelectedGift(null);
+                                    setSelectedSide(null);
+                                }}
+                                style={styles.giftsModalClose}
+                            >
+                                <Ionicons name="close" size={24} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
+                        
+                        {!selectedGift ? (
+                            <ScrollView
+                                style={styles.giftsList}
+                                contentContainerStyle={styles.giftsListContent}
+                                showsVerticalScrollIndicator={false}
+                                keyboardShouldPersistTaps="handled"
+                            >
+                                {GIFTS.map((gift) => (
+                                    <TouchableOpacity
+                                        key={gift.id}
+                                        style={styles.giftItem}
+                                        onPress={() => handleSelectGift(gift)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View style={styles.giftItemEmojiContainer}>
+                                            <Text style={styles.giftItemEmoji}>{gift.emoji}</Text>
+                                        </View>
+                                        <View style={styles.giftItemInfo}>
+                                            <Text style={styles.giftItemName}>{gift.name}</Text>
+                                            <Text style={styles.giftItemPrice}>{gift.price} moedas</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        ) : (
+                            <View style={styles.sideSelectionContainer}>
+                                <Text style={styles.sideSelectionTitle}>
+                                    Enviar {selectedGift.emoji} {selectedGift.name} para:
                                 </Text>
+                                <View style={styles.sideSelectionButtons}>
+                                    <TouchableOpacity
+                                        style={[styles.sideSelectionButton, { borderColor: streamerA.color }]}
+                                        onPress={() => handleSelectSide('A')}
+                                        activeOpacity={0.7}
+                                    >
+                                        <LinearGradient
+                                            colors={[streamerA.color + '40', streamerA.color + '20']}
+                                            style={styles.sideSelectionGradient}
+                                        >
+                                            <Text style={styles.sideSelectionEmoji}>{selectedGift.emoji}</Text>
+                                            <Text style={[styles.sideSelectionName, { color: streamerA.color }]}>
+                                                {streamerA.name}
+                                            </Text>
+                                            <Text style={styles.sideSelectionHandle}>{streamerA.handle}</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                    
+                                    <TouchableOpacity
+                                        style={[styles.sideSelectionButton, { borderColor: streamerB.color }]}
+                                        onPress={() => handleSelectSide('B')}
+                                        activeOpacity={0.7}
+                                    >
+                                        <LinearGradient
+                                            colors={[streamerB.color + '40', streamerB.color + '20']}
+                                            style={styles.sideSelectionGradient}
+                                        >
+                                            <Text style={styles.sideSelectionEmoji}>{selectedGift.emoji}</Text>
+                                            <Text style={[styles.sideSelectionName, { color: streamerB.color }]}>
+                                                {streamerB.name}
+                                            </Text>
+                                            <Text style={styles.sideSelectionHandle}>{streamerB.handle}</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                </View>
                                 <TouchableOpacity
+                                    style={styles.backButton}
                                     onPress={() => {
-                                        setShowGiftsModal(false);
                                         setSelectedGift(null);
                                         setSelectedSide(null);
                                     }}
-                                    style={styles.giftsModalClose}
                                 >
-                                    <Ionicons name="close" size={24} color="#fff" />
+                                    <Text style={styles.backButtonText}>← Voltar</Text>
                                 </TouchableOpacity>
                             </View>
-                            
-                            {!selectedGift ? (
-                        <ScrollView
-                            style={styles.giftsList}
-                            contentContainerStyle={styles.giftsListContent}
-                            showsVerticalScrollIndicator={false}
-                            keyboardShouldPersistTaps="handled"
-                        >
-                            {GIFTS.map((gift) => (
-                                <TouchableOpacity
-                                    key={gift.id}
-                                    style={styles.giftItem}
-                                    onPress={() => handleSelectGift(gift)}
-                                    activeOpacity={0.7}
-                                >
-                                    <View style={styles.giftItemEmojiContainer}>
-                                        <Text style={styles.giftItemEmoji}>{gift.emoji}</Text>
-                                    </View>
-                                    <View style={styles.giftItemInfo}>
-                                        <Text style={styles.giftItemName}>{gift.name}</Text>
-                                        <Text style={styles.giftItemPrice}>{gift.price} moedas</Text>
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                            ) : (
-                                <View style={styles.sideSelectionContainer}>
-                                    <Text style={styles.sideSelectionTitle}>
-                                        Enviar {selectedGift.emoji} {selectedGift.name} para:
-                                    </Text>
-                                    <View style={styles.sideSelectionButtons}>
-                                        <TouchableOpacity
-                                            style={[styles.sideSelectionButton, { borderColor: streamerA.color }]}
-                                            onPress={() => handleSelectSide('A')}
-                                            activeOpacity={0.7}
-                                        >
-                                            <LinearGradient
-                                                colors={[streamerA.color + '40', streamerA.color + '20']}
-                                                style={styles.sideSelectionGradient}
-                                            >
-                                                <Text style={styles.sideSelectionEmoji}>{selectedGift.emoji}</Text>
-                                                <Text style={[styles.sideSelectionName, { color: streamerA.color }]}>
-                                                    {streamerA.name}
-                                                </Text>
-                                                <Text style={styles.sideSelectionHandle}>{streamerA.handle}</Text>
-                                            </LinearGradient>
-                                        </TouchableOpacity>
-                                        
-                                        <TouchableOpacity
-                                            style={[styles.sideSelectionButton, { borderColor: streamerB.color }]}
-                                            onPress={() => handleSelectSide('B')}
-                                            activeOpacity={0.7}
-                                        >
-                                            <LinearGradient
-                                                colors={[streamerB.color + '40', streamerB.color + '20']}
-                                                style={styles.sideSelectionGradient}
-                                            >
-                                                <Text style={styles.sideSelectionEmoji}>{selectedGift.emoji}</Text>
-                                                <Text style={[styles.sideSelectionName, { color: streamerB.color }]}>
-                                                    {streamerB.name}
-                                                </Text>
-                                                <Text style={styles.sideSelectionHandle}>{streamerB.handle}</Text>
-                                            </LinearGradient>
-                                        </TouchableOpacity>
-                                    </View>
-                                    <TouchableOpacity
-                                        style={styles.backButton}
-                                        onPress={() => {
-                                            setSelectedGift(null);
-                                            setSelectedSide(null);
-                                        }}
-                                    >
-                                        <Text style={styles.backButtonText}>← Voltar</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            )}
-                        </View>
+                        )}
                     </View>
                 </View>
             </Modal>
