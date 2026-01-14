@@ -64,5 +64,32 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    subMenuContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingTop: 4,
+        paddingBottom: 8,
+        gap: 12,
+    },
+    subMenuTab: {
+        paddingHorizontal: 16,
+        paddingVertical: 4,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    },
+    subMenuTabActive: {
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    },
+    subMenuText: {
+        color: 'rgba(255, 255, 255, 0.5)',
+        fontSize: 11,
+        fontWeight: '500',
+    },
+    subMenuTextActive: {
+        color: '#FFFFFF',
+        fontWeight: '700',
+    },
 });
 

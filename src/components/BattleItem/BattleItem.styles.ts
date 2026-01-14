@@ -106,7 +106,7 @@ export const styles = StyleSheet.create({
     },
     scoreContainer: {
         position: 'absolute',
-        top: TOP_BAR_HEIGHT + 20,
+        bottom: 700, // Movido mais para baixo
         left: 0,
         right: 0,
         paddingHorizontal: 16,
@@ -142,26 +142,6 @@ export const styles = StyleSheet.create({
     },
     progressFill: {
         height: '100%',
-    },
-    dividerLineLeft: {
-        position: 'absolute',
-        left: width / 2 - 1.5,
-        top: 0,
-        bottom: 0,
-        width: 3,
-        backgroundColor: '#ff2d6f',
-        zIndex: 15,
-        opacity: 0.8,
-    },
-    dividerLineRight: {
-        position: 'absolute',
-        left: width / 2 + 1.5,
-        top: 0,
-        bottom: 0,
-        width: 3,
-        backgroundColor: '#37a0ff',
-        zIndex: 15,
-        opacity: 0.8,
     },
     chatOverlay: {
         position: 'absolute',
@@ -206,21 +186,6 @@ export const styles = StyleSheet.create({
         borderColor: 'rgba(255, 45, 111, 0.4)',
         overflow: 'hidden',
         flexDirection: 'column',
-    },
-    chatDragHandle: {
-        width: '100%',
-        height: 36,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingTop: 10,
-        paddingBottom: 4,
-        zIndex: 10,
-    },
-    chatDragIndicator: {
-        width: 48,
-        height: 5,
-        borderRadius: 3,
-        backgroundColor: 'rgba(255, 255, 255, 0.5)',
     },
     chatCollapsed: {
         flex: 1,
@@ -392,29 +357,19 @@ export const styles = StyleSheet.create({
     giftButtonEmoji: {
         fontSize: 20,
     },
-    giftAnimation: {
-        position: 'absolute',
-        width: 60,
-        height: 60,
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-    },
-    giftEmoji: {
-        fontSize: 50,
-    },
     giftsModalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
         justifyContent: 'flex-end',
-        zIndex: 9999,
-        elevation: 9999,
+        zIndex: 10000,
+        elevation: 10000,
     },
     giftsModalContent: {
         backgroundColor: 'rgba(10, 10, 26, 0.95)',
         borderTopLeftRadius: 25,
         borderTopRightRadius: 25,
-        maxHeight: height * 0.6,
+        maxHeight: height * 0.7,
+        minHeight: height * 0.4,
         paddingBottom: 20,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -4 },
@@ -422,6 +377,11 @@ export const styles = StyleSheet.create({
         shadowRadius: 12,
         elevation: 21,
         zIndex: 10000,
+        width: '100%',
+    },
+    giftsModalInner: {
+        width: '100%',
+        minHeight: 200,
     },
     giftsModalHeader: {
         flexDirection: 'row',
@@ -446,7 +406,7 @@ export const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     giftsList: {
-        flex: 1,
+        maxHeight: height * 0.5,
     },
     giftsListContent: {
         padding: 16,
@@ -467,9 +427,15 @@ export const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.15)',
         alignItems: 'center',
         justifyContent: 'center',
+        overflow: 'hidden',
     },
     giftItemEmoji: {
         fontSize: 36,
+    },
+    giftItemImage: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
     },
     giftItemInfo: {
         flex: 1,
@@ -517,6 +483,11 @@ export const styles = StyleSheet.create({
     },
     sideSelectionEmoji: {
         fontSize: 48,
+        marginBottom: 8,
+    },
+    sideSelectionImage: {
+        width: 60,
+        height: 60,
         marginBottom: 8,
     },
     sideSelectionName: {

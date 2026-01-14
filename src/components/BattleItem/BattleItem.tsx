@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { View, Text, Dimensions, TouchableOpacity, ScrollView, TextInput, KeyboardAvoidingView, Platform, Animated, PanResponder, Modal, StyleSheet } from 'react-native';
+import { View, Text, Dimensions, TouchableOpacity, ScrollView, TextInput, KeyboardAvoidingView, Platform, Animated, Modal, StyleSheet, ImageSourcePropType } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,32 +8,23 @@ import { styles } from './BattleItem.styles';
 
 interface Gift {
     id: string;
-    emoji: string;
     name: string;
     price: number;
+    imageUri?: ImageSourcePropType; // Para imagens customizadas
 }
 
-interface ActiveGift {
-    id: string;
-    emoji: string;
-    x: Animated.Value;
-    y: Animated.Value;
-    scale: Animated.Value;
-    opacity: Animated.Value;
-    rotation: Animated.Value;
-}
 
 const GIFTS: Gift[] = [
-    { id: '1', emoji: '❤️', name: 'Coração', price: 1 },
-    { id: '2', emoji: '🔥', name: 'Fogo', price: 5 },
-    { id: '3', emoji: '⭐', name: 'Estrela', price: 10 },
-    { id: '4', emoji: '⚡', name: 'Raio', price: 15 },
-    { id: '5', emoji: '🌹', name: 'Rosa', price: 20 },
-    { id: '6', emoji: '💎', name: 'Diamante', price: 50 },
-    { id: '7', emoji: '👑', name: 'Coroa', price: 100 },
-    { id: '8', emoji: '🎁', name: 'Presente', price: 200 },
-    { id: '9', emoji: '🚀', name: 'Foguete', price: 500 },
-    { id: '10', emoji: '💸', name: 'Dinheiro', price: 1000 },
+    { id: '1', name: 'Futuro', price: 1000, imageUri: require('../../../assets/futuro.png') as ImageSourcePropType },
+    { id: '2', name: 'Dragão Ataque', price: 5000, imageUri: require('../../../assets/dragaoft.png') as ImageSourcePropType },
+    { id: '3', name: 'Metamorfose', price: 3000, imageUri: require('../../../assets/metamorfose.png') as ImageSourcePropType },
+    { id: '4', name: 'Metamorfose Evolução', price: 4000, imageUri: require('../../../assets/metamorfoseEvolucao.png') as ImageSourcePropType },
+    { id: '5', name: 'Fada Metamorfose', price: 5000, imageUri: require('../../../assets/fadaMetamorfose.png') as ImageSourcePropType },
+    { id: '6', name: 'Diamante', price: 50 },
+    { id: '7', name: 'Coroa', price: 100 },
+    { id: '8', name: 'Presente', price: 200 },
+    { id: '9', name: 'Foguete', price: 500 },
+    { id: '10',name: 'Dinheiro', price: 1000 },
 ];
 
 const { width, height } = Dimensions.get('window');
@@ -85,19 +76,12 @@ export const BattleItem = ({
     const [showGiftsModal, setShowGiftsModal] = useState(false);
     const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
     const [selectedSide, setSelectedSide] = useState<'A' | 'B' | null>(null);
-    const [activeGifts, setActiveGifts] = useState<ActiveGift[]>([]);
-    const giftIdCounter = useRef(0);
-    const [videoACenter, setVideoACenter] = useState<number>(width * 0.25);
-    const [videoBCenter, setVideoBCenter] = useState<number>(width * 0.75);
     const [displayScoreA, setDisplayScoreA] = useState(0);
     const [displayScoreB, setDisplayScoreB] = useState(0);
     const [displayProgressA, setDisplayProgressA] = useState(0);
     
     const chatOpacityAnim = useRef(new Animated.Value(0.6)).current;
     const chatHeightAnim = useRef(new Animated.Value(MIN_CHAT_HEIGHT)).current;
-    const dragY = useRef(0);
-    const currentHeight = useRef(MIN_CHAT_HEIGHT);
-    const [chatHeight, setChatHeight] = useState(MIN_CHAT_HEIGHT);
     
     // Animações para os scores
     const animatedScoreA = useRef(new Animated.Value(0)).current;
@@ -171,51 +155,9 @@ export const BattleItem = ({
         return `${minutes}:${seconds}`;
     };
 
-    const panResponder = useRef(
-        PanResponder.create({
-            onStartShouldSetPanResponder: () => true,
-            onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 5,
-            onPanResponderGrant: () => {
-                chatHeightAnim.setOffset(currentHeight.current);
-                chatHeightAnim.setValue(0);
-            },
-            onPanResponderMove: (_, gestureState) => {
-                const newHeight = currentHeight.current - gestureState.dy;
-                const clampedHeight = Math.max(MIN_CHAT_HEIGHT, Math.min(MAX_CHAT_HEIGHT, newHeight));
-                chatHeightAnim.setValue(clampedHeight - currentHeight.current);
-                setChatHeight(clampedHeight);
-                const opacity = 0.6 + ((clampedHeight - MIN_CHAT_HEIGHT) / (MAX_CHAT_HEIGHT - MIN_CHAT_HEIGHT)) * 0.4;
-                chatOpacityAnim.setValue(Math.min(1, opacity));
-            },
-            onPanResponderRelease: (_, gestureState) => {
-                chatHeightAnim.flattenOffset();
-                const newHeight = currentHeight.current - gestureState.dy;
-                const clampedHeight = Math.max(MIN_CHAT_HEIGHT, Math.min(MAX_CHAT_HEIGHT, newHeight));
-                currentHeight.current = clampedHeight;
-                setChatHeight(clampedHeight);
-                const shouldBeOpen = clampedHeight > MIN_CHAT_HEIGHT + 20;
-                setIsChatOpen(shouldBeOpen);
-                Animated.spring(chatHeightAnim, {
-                    toValue: clampedHeight,
-                    useNativeDriver: false,
-                    tension: 50,
-                    friction: 8,
-                }).start();
-                const finalOpacity = shouldBeOpen ? 1 : 0.6;
-                Animated.spring(chatOpacityAnim, {
-                    toValue: finalOpacity,
-                    useNativeDriver: false,
-                    tension: 50,
-                    friction: 8,
-                }).start();
-            },
-        })
-    ).current;
-
+    // Quando o chat é aberto, sempre usa o mesmo tamanho
     useEffect(() => {
-        if (isChatOpen && currentHeight.current <= MIN_CHAT_HEIGHT + 20) {
-            currentHeight.current = DEFAULT_OPEN_HEIGHT;
-            setChatHeight(DEFAULT_OPEN_HEIGHT);
+        if (isChatOpen) {
             Animated.parallel([
                 Animated.spring(chatOpacityAnim, {
                     toValue: 1,
@@ -230,9 +172,7 @@ export const BattleItem = ({
                     friction: 8,
                 }),
             ]).start();
-        } else if (!isChatOpen && currentHeight.current > MIN_CHAT_HEIGHT + 20) {
-            currentHeight.current = MIN_CHAT_HEIGHT;
-            setChatHeight(MIN_CHAT_HEIGHT);
+        } else {
             Animated.parallel([
                 Animated.spring(chatOpacityAnim, {
                     toValue: 0.6,
@@ -277,79 +217,9 @@ export const BattleItem = ({
         setSelectedGift(null);
         setSelectedSide(null);
         
-        // Usa frações fixas para garantir que o spawn respeite o lado escolhido
-        const spawnX = side === 'A' ? width * 0.22 : width * 0.78;
-        const spawnY = height * 0.40;
-        
-        // Cria múltiplas instâncias do presente para efeito de explosão
-        const giftCount = 8;
-        const newGifts: ActiveGift[] = [];
-        
-        for (let i = 0; i < giftCount; i++) {
-            const angle = (i / giftCount) * Math.PI * 2;
-            const distance = 150 + Math.random() * 100;
-            
-            // Inicializa os valores animados com a posição de spawn
-            const x = new Animated.Value(spawnX);
-            const y = new Animated.Value(spawnY);
-            const scale = new Animated.Value(0);
-            const opacity = new Animated.Value(1);
-            const rotation = new Animated.Value(0);
-            
-            const giftId = `gift-${Date.now()}-${giftIdCounter.current++}`;
-            
-            // Calcula a posição final baseada no ângulo e distância
-            const finalX = spawnX + Math.cos(angle) * distance;
-            const finalY = spawnY + Math.sin(angle) * distance - 100;
-            
-            // Anima o presente explodindo a partir do lado escolhido
-            Animated.parallel([
-                Animated.spring(scale, {
-                    toValue: 1.5,
-                    useNativeDriver: true,
-                    tension: 50,
-                    friction: 5,
-                }),
-                Animated.timing(x, {
-                    toValue: finalX,
-                    duration: 1500,
-                    useNativeDriver: false,
-                }),
-                Animated.timing(y, {
-                    toValue: finalY,
-                    duration: 1500,
-                    useNativeDriver: false,
-                }),
-                Animated.timing(opacity, {
-                    toValue: 0,
-                    duration: 1500,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(rotation, {
-                    toValue: Math.random() * 720 - 360,
-                    duration: 1500,
-                    useNativeDriver: true,
-                }),
-            ]).start(() => {
-                setActiveGifts((prev) => prev.filter((g) => g.id !== giftId));
-            });
-            
-            newGifts.push({
-                id: giftId,
-                emoji: gift.emoji,
-                x,
-                y,
-                scale,
-                opacity,
-                rotation,
-            });
-        }
-        
-        setActiveGifts((prev) => [...prev, ...newGifts]);
-        
         // Envia mensagem no chat sobre o presente
         const streamerName = side === 'A' ? streamerA.name : streamerB.name;
-        onSendMessage(`🎁 Enviou ${gift.emoji} ${gift.name} para ${streamerName}!`);
+        onSendMessage(`Enviou ${gift.name} para ${streamerName}!`);
     };
 
     useEffect(() => {
@@ -371,15 +241,9 @@ export const BattleItem = ({
             )}
 
             {/* Left Video */}
-            <View
-                style={styles.videoWrapper}
-                onLayout={(e) => {
-                    const { x, width: w } = e.nativeEvent.layout;
-                    setVideoACenter(x + w / 2);
-                }}
-            >
+            <View style={styles.videoWrapper}>
                 <View style={styles.videoContainer}>
-                    <View style={[styles.frameBorder, { borderColor: streamerA.color }]}>
+                    <View style={[styles.frameBorder, { borderColor: '#000000' }]}>
                         <View style={styles.frameInner}>
                             <Video
                                 ref={videoARef}
@@ -407,15 +271,9 @@ export const BattleItem = ({
             </View>
 
             {/* Right Video */}
-            <View
-                style={styles.videoWrapper}
-                onLayout={(e) => {
-                    const { x, width: w } = e.nativeEvent.layout;
-                    setVideoBCenter(x + w / 2);
-                }}
-            >
+            <View style={styles.videoWrapper}>
                 <View style={styles.videoContainer}>
-                    <View style={[styles.frameBorder, { borderColor: streamerB.color }]}>
+                    <View style={[styles.frameBorder, { borderColor: '#000000' }]}>
                         <View style={styles.frameInner}>
                             <Video
                                 ref={videoBRef}
@@ -490,10 +348,6 @@ export const BattleItem = ({
                 </View>
             </View>
 
-            {/* Divisor lines */}
-            <View style={styles.dividerLineLeft} />
-            <View style={styles.dividerLineRight} />
-
             {/* Chat Section */}
             <View style={styles.chatContainerWrapper}>
                 <Animated.View
@@ -507,17 +361,13 @@ export const BattleItem = ({
                 >
                     <LinearGradient
                         colors={
-                            chatHeight > MIN_CHAT_HEIGHT + 20
+                            isChatOpen
                                 ? ['rgba(0, 0, 0, 0.95)', 'rgba(10, 10, 26, 0.9)', 'rgba(26, 26, 46, 0.85)']
                                 : ['rgba(0, 0, 0, 0.4)', 'rgba(10, 10, 26, 0.3)', 'rgba(26, 26, 46, 0.2)']
                         }
                         style={styles.chatGradientBackground}
                     >
-                        <View style={styles.chatDragHandle} {...panResponder.panHandlers}>
-                            <View style={styles.chatDragIndicator} />
-                        </View>
-
-                        {chatHeight > MIN_CHAT_HEIGHT + 20 ? (
+                        {isChatOpen ? (
                             <View style={styles.chatContentWrapper}>
                                 <View style={styles.chatHeader}>
                                     <View style={styles.chatHeaderLeft}>
@@ -575,7 +425,7 @@ export const BattleItem = ({
                                                 colors={[streamerA.color, streamerB.color]}
                                                 style={styles.giftButtonGradient}
                                             >
-                                                <Text style={styles.giftButtonEmoji}>🎁</Text>
+                                                <Ionicons name="gift" size={20} color="#FFFFFF" />
                                             </LinearGradient>
                                         </TouchableOpacity>
                                         <TextInput
@@ -619,33 +469,6 @@ export const BattleItem = ({
                 </Animated.View>
             </View>
 
-            {/* Presentes animados na tela */}
-            {activeGifts.map((gift) => (
-                <Animated.View
-                    key={gift.id}
-                    style={[
-                        styles.giftAnimation,
-                        {
-                            left: Animated.subtract(gift.x, 30),
-                            top: Animated.subtract(gift.y, 30),
-                            transform: [
-                                { scale: gift.scale },
-                                {
-                                    rotate: gift.rotation.interpolate({
-                                        inputRange: [-360, 360],
-                                        outputRange: ['-360deg', '360deg'],
-                                    }),
-                                },
-                            ],
-                            opacity: gift.opacity,
-                        },
-                    ]}
-                    pointerEvents="none"
-                >
-                    <Text style={styles.giftEmoji}>{gift.emoji}</Text>
-                </Animated.View>
-            ))}
-
             {/* Modal de Presentes */}
             <Modal
                 visible={showGiftsModal}
@@ -655,22 +478,23 @@ export const BattleItem = ({
                 statusBarTranslucent={true}
             >
                 <View style={styles.giftsModalOverlay}>
-                    {!selectedGift && (
-                        <TouchableOpacity
-                            style={StyleSheet.absoluteFill}
-                            activeOpacity={1}
-                            onPress={() => {
+                    <TouchableOpacity
+                        style={StyleSheet.absoluteFill}
+                        activeOpacity={1}
+                        onPress={() => {
+                            if (!selectedGift) {
                                 setShowGiftsModal(false);
                                 setSelectedGift(null);
                                 setSelectedSide(null);
-                            }}
-                        />
-                    )}
-                    <View style={styles.giftsModalContent} pointerEvents="box-none">
-                        <View
-                            style={{ flex: 1 }}
-                            pointerEvents="box-none"
-                        >
+                            }
+                        }}
+                    />
+                    <TouchableOpacity 
+                        activeOpacity={1}
+                        onPress={(e) => e.stopPropagation()}
+                        style={styles.giftsModalContent}
+                    >
+                        <View style={styles.giftsModalInner}>
                             <View style={styles.giftsModalHeader}>
                                 <Text style={styles.giftsModalTitle}>
                                     {selectedGift ? 'Escolha para quem enviar' : 'Enviar Presente'}
@@ -702,7 +526,13 @@ export const BattleItem = ({
                                     activeOpacity={0.7}
                                 >
                                     <View style={styles.giftItemEmojiContainer}>
-                                        <Text style={styles.giftItemEmoji}>{gift.emoji}</Text>
+                                        {gift.imageUri && (
+                                            <Image 
+                                                source={gift.imageUri} 
+                                                style={styles.giftItemImage}
+                                                resizeMode="cover"
+                                            />
+                                        )}
                                     </View>
                                     <View style={styles.giftItemInfo}>
                                         <Text style={styles.giftItemName}>{gift.name}</Text>
@@ -714,7 +544,7 @@ export const BattleItem = ({
                             ) : (
                                 <View style={styles.sideSelectionContainer}>
                                     <Text style={styles.sideSelectionTitle}>
-                                        Enviar {selectedGift.emoji} {selectedGift.name} para:
+                                        Enviar {selectedGift.name} para:
                                     </Text>
                                     <View style={styles.sideSelectionButtons}>
                                         <TouchableOpacity
@@ -726,7 +556,13 @@ export const BattleItem = ({
                                                 colors={[streamerA.color + '40', streamerA.color + '20']}
                                                 style={styles.sideSelectionGradient}
                                             >
-                                                <Text style={styles.sideSelectionEmoji}>{selectedGift.emoji}</Text>
+                                                {selectedGift.imageUri && (
+                                                    <Image 
+                                                        source={selectedGift.imageUri} 
+                                                        style={styles.sideSelectionImage}
+                                                        resizeMode="cover"
+                                                    />
+                                                )}
                                                 <Text style={[styles.sideSelectionName, { color: streamerA.color }]}>
                                                     {streamerA.name}
                                                 </Text>
@@ -743,7 +579,13 @@ export const BattleItem = ({
                                                 colors={[streamerB.color + '40', streamerB.color + '20']}
                                                 style={styles.sideSelectionGradient}
                                             >
-                                                <Text style={styles.sideSelectionEmoji}>{selectedGift.emoji}</Text>
+                                                {selectedGift.imageUri && (
+                                                    <Image 
+                                                        source={selectedGift.imageUri} 
+                                                        style={styles.sideSelectionImage}
+                                                        resizeMode="cover"
+                                                    />
+                                                )}
                                                 <Text style={[styles.sideSelectionName, { color: streamerB.color }]}>
                                                     {streamerB.name}
                                                 </Text>
@@ -763,7 +605,7 @@ export const BattleItem = ({
                                 </View>
                             )}
                         </View>
-                    </View>
+                    </TouchableOpacity>
                 </View>
             </Modal>
         </View>

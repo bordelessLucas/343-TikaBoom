@@ -5,22 +5,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '../../routes/NavigationContext';
 import { styles } from './TopBar.styles';
 
-type TabType = 'forYou' | 'lives' | 'battle';
+type TabType = 'forYou' | 'lives';
 
 interface TopBarProps {
     activeTab: TabType;
     onTabChange: (tab: TabType) => void;
+    liveMode?: 'lives' | 'battle';
+    onLiveModeChange?: (mode: 'lives' | 'battle') => void;
 }
 
-export const TopBar = ({ activeTab, onTabChange }: TopBarProps) => {
+export const TopBar = ({ activeTab, onTabChange, liveMode, onLiveModeChange }: TopBarProps) => {
     const { navigate, currentScreen } = useNavigation();
 
     const handleTabPress = (tab: TabType) => {
         if (tab === 'forYou' && currentScreen !== 'Home') {
             navigate('Home');
         } else if (tab === 'lives' && currentScreen !== 'Live') {
-            navigate('Live' as any);
-        } else if (tab === 'battle' && currentScreen !== 'Live') {
             navigate('Live' as any);
         }
         onTabChange(tab);
@@ -55,22 +55,35 @@ export const TopBar = ({ activeTab, onTabChange }: TopBarProps) => {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={styles.tab}
-                    onPress={() => handleTabPress('battle')}
-                >
-                    <Text style={[styles.tabText, activeTab === 'battle' && styles.tabTextActive]}>
-                        Batalha
-                    </Text>
-                    {activeTab === 'battle' && <View style={styles.tabUnderline} />}
-                </TouchableOpacity>
-
-                <TouchableOpacity
                     style={styles.searchButton}
                     onPress={() => navigate('Search' as any)}
                 >
                     <MaterialIcons name="search" size={22} color="#FFFFFF" />
                 </TouchableOpacity>
             </View>
+            
+            {/* Sub-menu para alternar entre Lives e Batalhas (apenas quando Lives está ativo) */}
+            {activeTab === 'lives' && liveMode && onLiveModeChange && (
+                <View style={styles.subMenuContainer}>
+                    <TouchableOpacity
+                        style={[styles.subMenuTab, liveMode === 'lives' && styles.subMenuTabActive]}
+                        onPress={() => onLiveModeChange('lives')}
+                    >
+                        <Text style={[styles.subMenuText, liveMode === 'lives' && styles.subMenuTextActive]}>
+                            Lives
+                        </Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                        style={[styles.subMenuTab, liveMode === 'battle' && styles.subMenuTabActive]}
+                        onPress={() => onLiveModeChange('battle')}
+                    >
+                        <Text style={[styles.subMenuText, liveMode === 'battle' && styles.subMenuTextActive]}>
+                            Batalhas
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )}
         </LinearGradient>
     );
 };
