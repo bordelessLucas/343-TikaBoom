@@ -1,65 +1,194 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions, FlatList } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Dimensions, FlatList, Image, Alert, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '../../routes/NavigationContext';
 import { styles } from './Profile.styles';
+import { auth } from '../../lib/firebaseconfig';
+import { authService, UserProfile } from '../../services/authService';
+import { postsService, Post } from '../../services/postsService';
+import { usersService } from '../../services/usersService';
+import { messagesService } from '../../services/messagesService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
-const videoWidth = (width - 4) / 3; // 3 colunas com espaçamento
-
-// Dados mockados do perfil
-const profileData = {
-    username: 'usuario',
-    displayName: 'usuario',
-    isVerified: true,
-    following: 14,
-    followers: '1,5 mi',
-    likes: '15,2 mi',
-    description: 'Usuario',
-    isLive: true,
-};
-
-// Vídeos mockados
-const mockVideos = [
-    { id: '1', thumbnail: '', views: '40,2 mil', watched: false },
-    { id: '2', thumbnail: '', views: '44,5 mil', watched: false },
-    { id: '3', thumbnail: '', views: '51,5 mil', watched: false },
-    { id: '4', thumbnail: '', views: '168,5 mil', watched: true },
-    { id: '5', thumbnail: '', views: '39,3 mil', watched: false },
-    { id: '6', thumbnail: '', views: '25,1 mil', watched: false },
-    { id: '7', thumbnail: '', views: '32,8 mil', watched: false },
-    { id: '8', thumbnail: '', views: '18,9 mil', watched: false },
-    { id: '9', thumbnail: '', views: '55,3 mil', watched: false },
-];
+const videoWidth = (width - 4) / 3;
 
 export const Profile = () => {
     const { navigate } = useNavigation();
+    const [profileData, setProfileData] = useState<UserProfile | null>(null);
+    const [userPosts, setUserPosts] = useState<Post[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isFollowing, setIsFollowing] = useState(false);
+    const [isCurrentUser, setIsCurrentUser] = useState(false);
 
-    const renderVideoItem = ({ item }: { item: typeof mockVideos[0] }) => {
+    useEffect(() => {
+        loadProfile();
+    }, []);
+
+    const loadProfile = async () => {
+        try {
+            setLoading(true);
+            const currentUser = auth.currentUser;
+            if (!currentUser) {
+                navigate('Login');
+                return;
+            }
+
+            // Buscar userId do AsyncStorage
+            const viewingUserId = await AsyncStorage.getItem('viewingUserId');
+            if (!viewingUserId) {
+                // Se não houver userId, redirecionar para Home
+                navigate('Home');
+                return;
+            }
+
+            // Verificar se é o próprio perfil
+            if (viewingUserId === currentUser.uid) {
+                setIsCurrentUser(true);
+                navigate('MyProfile');
+                return;
+            }
+
+            // Carregar perfil do usuário
+            const profile = await authService.getUserProfile(viewingUserId);
+            if (!profile) {
+                Alert.alert('Erro', 'Usuário não encontrado');
+                navigate('Home');
+                return;
+            }
+
+            setProfileData(profile);
+
+            // Verificar se está seguindo
+            const following = await usersService.isFollowing(currentUser.uid, viewingUserId);
+            setIsFollowing(following);
+
+            // Carregar posts do usuário
+            const posts = await postsService.getUserPosts(viewingUserId, false);
+            setUserPosts(posts);
+        } catch (error) {
+            console.error('Erro ao carregar perfil:', error);
+            Alert.alert('Erro', 'Não foi possível carregar o perfil');
+            navigate('Home');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleFollow = async () => {
+        if (!profileData) return;
+
+        try {
+            const currentUser = auth.currentUser;
+            if (!currentUser) return;
+
+            if (isFollowing) {
+                await usersService.unfollowUser(currentUser.uid, profileData.uid);
+                setIsFollowing(false);
+                Alert.alert('Sucesso', 'Você deixou de seguir este usuário');
+            } else {
+                await usersService.followUser(currentUser.uid, profileData.uid);
+                setIsFollowing(true);
+                
+                // Criar chat automaticamente ao seguir
+                try {
+                    await messagesService.getOrCreateChat(currentUser.uid, profileData.uid);
+                    console.log('✅ Chat criado automaticamente ao seguir');
+                } catch (error) {
+                    console.warn('⚠️ Não foi possível criar chat automaticamente:', error);
+                }
+                
+                Alert.alert('Sucesso', 'Agora você está seguindo este usuário!');
+            }
+
+            // Recarregar perfil para atualizar contadores
+            await loadProfile();
+        } catch (error: any) {
+            Alert.alert('Erro', error.message || 'Não foi possível seguir/deixar de seguir');
+        }
+    };
+
+    const handleMessage = async () => {
+        if (!profileData) return;
+
+        try {
+            const currentUser = auth.currentUser;
+            if (!currentUser) {
+                Alert.alert('Erro', 'Você precisa estar logado para enviar mensagens');
+                return;
+            }
+
+            console.log('💬 Iniciando criação/obtenção de chat...');
+            
+            // Criar ou obter chat
+            const chatId = await messagesService.getOrCreateChat(currentUser.uid, profileData.uid);
+            
+            console.log('✅ Chat ID obtido:', chatId);
+            
+            // Salvar informações do chat
+            await AsyncStorage.setItem('currentChatId', chatId);
+            await AsyncStorage.setItem('currentChatOtherUser', JSON.stringify({
+                uid: profileData.uid,
+                username: profileData.username,
+                photoURL: profileData.photoURL,
+            }));
+
+            console.log('✅ Navegando para Chat...');
+            navigate('Chat');
+        } catch (error: any) {
+            console.error('❌ Erro ao abrir chat:', error);
+            const errorMessage = error.message || 'Não foi possível abrir o chat';
+            
+            // Mensagem mais descritiva para erros de permissão
+            if (errorMessage.includes('permission') || errorMessage.includes('Permissão')) {
+                Alert.alert(
+                    'Erro de Permissão',
+                    'Não foi possível criar o chat. Verifique se as regras de segurança do Firestore estão configuradas corretamente para a coleção "chats".\n\n' +
+                    'Certifique-se de que a regra de criação permite:\n' +
+                    'allow create: if request.auth != null && request.auth.uid in request.resource.data.participants;'
+                );
+            } else {
+                Alert.alert('Erro', errorMessage);
+            }
+        }
+    };
+
+    const renderVideoItem = ({ item }: { item: Post }) => {
+        const views = item.views > 1000 ? `${(item.views / 1000).toFixed(1)}k` : item.views.toString();
         return (
-            <TouchableOpacity style={styles.videoThumbnail}>
-                <View style={[styles.thumbnailContainer, item.watched && styles.watchedContainer]}>
-                    {item.watched ? (
-                        <View style={styles.watchedOverlay}>
-                            <MaterialIcons name="play-arrow" size={40} color="#FFFFFF" />
-                            <Text style={styles.watchedText}>Assistido</Text>
+            <TouchableOpacity 
+                style={styles.videoThumbnail}
+                onPress={() => navigate('Home')}
+            >
+                <View style={styles.thumbnailContainer}>
+                    {item.thumbnailURL ? (
+                        <Image source={{ uri: item.thumbnailURL }} style={styles.thumbnailImage} />
+                    ) : item.mediaType === 'video' ? (
+                        <View style={styles.thumbnailPlaceholder}>
+                            <MaterialIcons name="play-arrow" size={20} color="#FFFFFF" />
                         </View>
                     ) : (
-                        <View style={styles.thumbnailPlaceholder}>
-                            <View style={styles.playIconContainer}>
-                                <MaterialIcons name="play-arrow" size={20} color="#FFFFFF" />
-                            </View>
-                        </View>
+                        <Image source={{ uri: item.mediaURL }} style={styles.thumbnailImage} />
                     )}
                 </View>
                 <View style={styles.videoInfo}>
                     <MaterialIcons name="play-arrow" size={12} color="#FFFFFF" />
-                    <Text style={styles.viewCount}>{item.views}</Text>
+                    <Text style={styles.viewCount}>{views}</Text>
                 </View>
             </TouchableOpacity>
         );
     };
+
+    if (loading || !profileData) {
+        return (
+            <LinearGradient colors={['#28002b', '#1a1a2e', '#0a0a1a']} style={styles.container}>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color="#FFFFFF" />
+                </View>
+            </LinearGradient>
+        );
+    }
 
     return (
         <LinearGradient
@@ -82,13 +211,17 @@ export const Profile = () => {
                     </View>
                 </View>
 
-                    {/* Profile Picture */}
-                    <View style={styles.profileSection}>
-                        <View style={styles.profileImageContainer}>
+                {/* Profile Picture */}
+                <View style={styles.profileSection}>
+                    <View style={styles.profileImageContainer}>
+                        {profileData.photoURL ? (
+                            <Image source={{ uri: profileData.photoURL }} style={styles.profileImage} />
+                        ) : (
                             <View style={styles.profileImagePlaceholder}>
                                 <MaterialIcons name="person" size={50} color="rgba(255,255,255,0.5)" />
                             </View>
-                        </View>
+                        )}
+                    </View>
 
                     {/* Profile Info */}
                     <View style={styles.profileInfo}>
@@ -112,18 +245,23 @@ export const Profile = () => {
                             <Text style={styles.statLabel}>Seguidores</Text>
                         </View>
                         <View style={styles.statItem}>
-                            <Text style={styles.statNumber}>{profileData.likes}</Text>
-                            <Text style={styles.statLabel}>Curtidas</Text>
+                            <Text style={styles.statNumber}>{profileData.posts}</Text>
+                            <Text style={styles.statLabel}>Posts</Text>
                         </View>
                     </View>
 
                     {/* Action Buttons */}
                     <View style={styles.actionButtons}>
-                        <TouchableOpacity style={styles.followButton}>
-                            <Text style={styles.followButtonText}>Seguir</Text>
+                        <TouchableOpacity 
+                            style={[styles.followButton, isFollowing && styles.followingButton]}
+                            onPress={handleFollow}
+                        >
+                            <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
+                                {isFollowing ? 'Seguindo' : 'Seguir'}
+                            </Text>
                         </TouchableOpacity>
                         
-                        <TouchableOpacity style={styles.messageButton}>
+                        <TouchableOpacity style={styles.messageButton} onPress={handleMessage}>
                             <MaterialIcons name="send" size={18} color="#FFFFFF" />
                             <Text style={styles.messageButtonText}>Mensagem</Text>
                         </TouchableOpacity>
@@ -134,18 +272,8 @@ export const Profile = () => {
 
                     {/* Description */}
                     <View style={styles.descriptionContainer}>
-                        <Text style={styles.description}>{profileData.description}</Text>
+                        <Text style={styles.description}>{profileData.bio || 'Sem descrição'}</Text>
                     </View>
-
-                    {/* Live Indicator */}
-                    {profileData.isLive && (
-                        <View style={styles.liveContainer}>
-                            <View style={styles.liveIcon}>
-                                <MaterialIcons name="fiber-manual-record" size={12} color="#FF0000" />
-                            </View>
-                            <Text style={styles.liveText}>LIVE</Text>
-                        </View>
-                    )}
 
                     {/* Grid Selector */}
                     <View style={styles.gridSelector}>
@@ -159,17 +287,23 @@ export const Profile = () => {
 
                 {/* Videos Grid */}
                 <View style={styles.videosGrid}>
-                    <FlatList
-                        data={mockVideos}
-                        renderItem={renderVideoItem}
-                        keyExtractor={(item) => item.id}
-                        numColumns={3}
-                        scrollEnabled={false}
-                        columnWrapperStyle={styles.row}
-                    />
+                    {userPosts.length > 0 ? (
+                        <FlatList
+                            data={userPosts}
+                            renderItem={renderVideoItem}
+                            keyExtractor={(item) => item.id}
+                            numColumns={3}
+                            scrollEnabled={false}
+                            columnWrapperStyle={styles.row}
+                        />
+                    ) : (
+                        <View style={styles.emptyPosts}>
+                            <MaterialIcons name="videocam-off" size={40} color="rgba(255,255,255,0.3)" />
+                            <Text style={styles.emptyPostsText}>Nenhum post ainda</Text>
+                        </View>
+                    )}
                 </View>
             </ScrollView>
         </LinearGradient>
     );
 };
-

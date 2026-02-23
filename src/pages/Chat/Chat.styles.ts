@@ -20,8 +20,28 @@ export const styles = StyleSheet.create({
     backButton: {
         padding: 5,
     },
+    headerTitle: {
+        color: '#FFFFFF',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
     headerInfo: {
         flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    headerAvatar: {
+        width: 35,
+        height: 35,
+        borderRadius: 17.5,
+    },
+    headerAvatarPlaceholder: {
+        width: 35,
+        height: 35,
+        borderRadius: 17.5,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        justifyContent: 'center',
         alignItems: 'center',
     },
     headerUsername: {

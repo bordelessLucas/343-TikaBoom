@@ -3,85 +3,77 @@ import { View, FlatList, Dimensions } from 'react-native';
 import { VideoItem } from '../../components/VideoItem/VideoItem';
 import { TopBar } from '../../components/TopBar/TopBar';
 import { useNavigation } from '../../routes/NavigationContext';
+import { postsService, Post } from '../../services/postsService';
 import { styles } from './Home.styles';
 
 const { height } = Dimensions.get('window');
 
-// Dados mockados de vídeos (por enquanto)
-const mockVideos = [
-    {
-        id: '1',
-        videoUri: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-        username: 'usuario1',
-        description: 'Meu primeiro vídeo no TikaBoom! 🎉',
-        likes: 1331,
-        comments: [
-            { id: '1', username: 'queimandocoisas no microondas', text: 'manda salve', likes: 0, timeAgo: '2d' },
-            { id: '2', username: 'MrRebelatto', text: '"tira tira"', likes: 1, timeAgo: '2d' },
-        ],
-        saves: 47,
-        shares: 19,
-    },
-    {
-        id: '2',
-        videoUri: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-        username: 'usuario2',
-        description: 'Conteúdo incrível aqui! 👏',
-        likes: 856,
-        comments: [
-            { id: '3', username: 'user123', text: 'Muito bom!', likes: 5, timeAgo: '1d' },
-        ],
-        saves: 23,
-        shares: 12,
-    },
-    {
-        id: '3',
-        videoUri: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-        username: 'usuario3',
-        description: 'Seguindo a tendência! 🔥',
-        likes: 2341,
-        comments: [],
-        saves: 89,
-        shares: 45,
-    },
-    {
-        id: '4',
-        videoUri: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-        username: 'usuario4',
-        description: 'Novo vídeo disponível! ✨',
-        likes: 567,
-        comments: [
-            { id: '4', username: 'fan1', text: 'Amei!', likes: 2, timeAgo: '3h' },
-            { id: '5', username: 'fan2', text: 'Incrível!', likes: 0, timeAgo: '5h' },
-        ],
-        saves: 34,
-        shares: 8,
-    },
-    {
-        id: '5',
-        videoUri: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-        username: 'usuario5',
-        description: 'Divertido e criativo! 😄',
-        likes: 1234,
-        comments: [
-            { id: '6', username: 'user456', text: 'Hahaha', likes: 3, timeAgo: '1h' },
-        ],
-        saves: 56,
-        shares: 23,
-    },
-];
+interface FeedItem {
+    id: string;
+    videoUri: string;
+    username: string;
+    description: string;
+    likes: number;
+    comments: any[];
+    saves: number;
+    shares: number;
+    postId: string; // Sempre presente para posts do Firebase
+    userProfileImage?: string;
+    creatorProfileImage?: string;
+}
 
 export const Home = () => {
     const { navigate, currentScreen } = useNavigation();
     const [currentIndex, setCurrentIndex] = useState(0);
     const [activeTab, setActiveTab] = useState<'forYou' | 'lives'>('forYou');
+    const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
+    const [loading, setLoading] = useState(true);
     const flatListRef = useRef<FlatList>(null);
 
     useEffect(() => {
         if (currentScreen === 'Home') {
             setActiveTab('forYou');
+            loadFeed();
         }
     }, [currentScreen]);
+
+    const loadFeed = async () => {
+        try {
+            setLoading(true);
+            // Buscar APENAS posts do Firebase (sem mockados)
+            const firebasePosts = await postsService.getFeedPosts(50);
+            
+            // Converter posts do Firebase para formato do feed
+            const feedItems: FeedItem[] = firebasePosts
+                .filter(post => post.mediaType === 'video') // Apenas vídeos no feed
+                .map(post => ({
+                    id: post.id,
+                    postId: post.id, // Sempre presente
+                    videoUri: post.mediaURL,
+                    username: post.authorUsername,
+                    description: post.description || post.title,
+                    likes: post.likes || 0,
+                    comments: [], // Será carregado quando necessário
+                    saves: post.saves || 0,
+                    shares: post.shares || 0,
+                    userProfileImage: post.authorPhotoURL,
+                    creatorProfileImage: post.authorPhotoURL,
+                }));
+
+            setFeedItems(feedItems);
+            
+            if (feedItems.length === 0) {
+                console.log('📭 Nenhum post encontrado no feed');
+            } else {
+                console.log(`✅ ${feedItems.length} posts carregados do Firebase`);
+            }
+        } catch (error) {
+            console.error('❌ Erro ao carregar feed:', error);
+            setFeedItems([]); // Array vazio em caso de erro
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleTabChange = (tab: 'forYou' | 'lives') => {
         setActiveTab(tab);
@@ -100,7 +92,7 @@ export const Home = () => {
         itemVisiblePercentThreshold: 50,
     }).current;
 
-    const renderItem = ({ item, index }: { item: typeof mockVideos[0]; index: number }) => {
+    const renderItem = ({ item, index }: { item: FeedItem; index: number }) => {
         return (
             <VideoItem
                 videoUri={item.videoUri}
@@ -111,6 +103,9 @@ export const Home = () => {
                 comments={item.comments}
                 saves={item.saves}
                 shares={item.shares}
+                postId={item.postId} // Sempre presente
+                userProfileImage={item.userProfileImage}
+                creatorProfileImage={item.creatorProfileImage}
             />
         );
     };
@@ -120,9 +115,11 @@ export const Home = () => {
             <TopBar activeTab={activeTab} onTabChange={handleTabChange} />
             <FlatList
                 ref={flatListRef}
-                data={mockVideos}
+                data={feedItems}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
+                refreshing={loading}
+                onRefresh={loadFeed}
                 pagingEnabled
                 showsVerticalScrollIndicator={false}
                 snapToInterval={height}

@@ -3,6 +3,9 @@ import { View, Text, TouchableOpacity, Alert, Dimensions, Image, FlatList, Modal
 import { CameraView, CameraType, FlashMode, useCameraPermissions } from 'expo-camera';
 import { MaterialIcons, Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../../lib/firebaseconfig';
+import { postsService } from '../../services/postsService';
+import { authService } from '../../services/authService';
 import { useNavigation } from '../../routes/NavigationContext';
 import { styles } from './CreateVideo.styles';
 
@@ -17,7 +20,29 @@ interface CapturedMedia {
     duration?: number; // Para vídeos
 }
 
+interface Post {
+    id: string;
+    mediaUri: string;
+    mediaType: 'photo' | 'video';
+    title: string;
+    description: string;
+    hashtags: string[];
+    isPrivate: boolean;
+    timestamp: number;
+    duration?: number;
+    likes: number;
+    comments: number;
+    shares: number;
+    views: number;
+    author: {
+        name: string;
+        username: string;
+        avatar?: string;
+    };
+}
+
 const STORAGE_KEY = '@tikaboom_captured_media';
+const POSTS_STORAGE_KEY = '@tikaboom_posts';
 
 export const CreateVideo = () => {
     const { navigate } = useNavigation();
@@ -38,10 +63,20 @@ export const CreateVideo = () => {
     const [selectedMedia, setSelectedMedia] = useState<CapturedMedia | null>(null);
     const [createMode, setCreateMode] = useState<'create' | 'live'>('create'); // Modo: Criar ou Live
     const [liveTitle, setLiveTitle] = useState('le LIVE em escala');
+    
+    // Estados para publicação
+    const [showPublishModal, setShowPublishModal] = useState(false);
+    const [mediaToPublish, setMediaToPublish] = useState<CapturedMedia | null>(null);
+    const [postTitle, setPostTitle] = useState('');
+    const [postDescription, setPostDescription] = useState('');
+    const [postHashtags, setPostHashtags] = useState('');
+    const [isPrivatePost, setIsPrivatePost] = useState(false);
+    const [posts, setPosts] = useState<Post[]>([]);
 
-    // Carregar mídias salvas ao montar componente
+    // Carregar mídias salvas e posts ao montar componente
     useEffect(() => {
         loadCapturedMedia();
+        loadPosts();
     }, []);
 
     // Função para parar gravação
@@ -172,6 +207,128 @@ export const CreateVideo = () => {
         );
     };
 
+    // Funções de Posts
+    const loadPosts = async () => {
+        try {
+            const stored = await AsyncStorage.getItem(POSTS_STORAGE_KEY);
+            if (stored) {
+                const loadedPosts: Post[] = JSON.parse(stored);
+                setPosts(loadedPosts);
+                console.log(`✅ ${loadedPosts.length} posts carregados do storage`);
+            }
+        } catch (error) {
+            console.error('Erro ao carregar posts:', error);
+        }
+    };
+
+    const openPublishModal = (media: CapturedMedia) => {
+        setMediaToPublish(media);
+        setPostTitle('');
+        setPostDescription('');
+        setPostHashtags('');
+        setIsPrivatePost(false);
+        setShowPublishModal(true);
+    };
+
+    const publishPost = async () => {
+        if (!mediaToPublish) return;
+        
+        if (!postTitle.trim()) {
+            Alert.alert('Atenção', 'Por favor, adicione um título ao seu post');
+            return;
+        }
+
+        const user = auth.currentUser;
+        if (!user) {
+            Alert.alert('Erro', 'Você precisa estar logado para publicar');
+            navigate('Login');
+            return;
+        }
+
+        try {
+            Alert.alert('Publicando...', 'Enviando seu post, aguarde...');
+            
+            // Obter perfil do usuário
+            const userProfile = await authService.getUserProfile(user.uid);
+            if (!userProfile) {
+                throw new Error('Perfil não encontrado');
+            }
+
+            // Upload da mídia para Firebase Storage
+            const { mediaURL, thumbnailURL } = await postsService.uploadMedia(
+                user.uid,
+                mediaToPublish.uri,
+                mediaToPublish.type
+            );
+
+            // Processar hashtags
+            const hashtags = postHashtags
+                .split(' ')
+                .filter(tag => tag.startsWith('#'))
+                .map(tag => tag.trim().toLowerCase());
+
+            // Criar post no Firestore
+            const postId = await postsService.createPost({
+                authorId: user.uid,
+                authorUsername: userProfile.username,
+                authorDisplayName: userProfile.displayName,
+                authorPhotoURL: userProfile.photoURL,
+                mediaType: mediaToPublish.type,
+                mediaURL,
+                thumbnailURL,
+                title: postTitle.trim(),
+                description: postDescription.trim(),
+                hashtags,
+                isPrivate: isPrivatePost,
+            });
+
+            // Salvar também no AsyncStorage para compatibilidade
+            const newPost = {
+                id: postId,
+                mediaUri: mediaURL,
+                mediaType: mediaToPublish.type,
+                title: postTitle.trim(),
+                description: postDescription.trim(),
+                hashtags,
+                isPrivate: isPrivatePost,
+                timestamp: Date.now(),
+                duration: mediaToPublish.duration,
+                likes: 0,
+                comments: 0,
+                shares: 0,
+                views: 0,
+                author: {
+                    name: userProfile.displayName,
+                    username: userProfile.username,
+                }
+            };
+
+            const updatedPosts = [newPost, ...posts];
+            await AsyncStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(updatedPosts));
+            setPosts(updatedPosts);
+            
+            setShowPublishModal(false);
+            setMediaToPublish(null);
+            
+            Alert.alert(
+                '✅ Publicado!',
+                `Seu ${mediaToPublish.type === 'video' ? 'vídeo' : 'foto'} foi publicado com sucesso!`,
+                [
+                    {
+                        text: 'Ver Perfil',
+                        onPress: () => navigate('MyProfile')
+                    },
+                    { text: 'OK' }
+                ]
+            );
+            
+            console.log('✅ Post publicado no Firebase:', postId);
+        } catch (error: any) {
+            console.error('Erro ao publicar post:', error);
+            Alert.alert('Erro', error.message || 'Não foi possível publicar o post');
+        }
+    };
+
     if (!permission) {
         return <View style={styles.container} />;
     }
@@ -244,7 +401,8 @@ export const CreateVideo = () => {
                 
                 const saved = await saveCapturedMedia(mediaData);
                 if (saved) {
-                    Alert.alert('✅ Sucesso!', 'Vídeo gravado e salvo!');
+                    // Abrir modal de publicação
+                    openPublishModal(mediaData);
                 } else {
                     Alert.alert('Aviso', 'Vídeo gravado mas não foi possível salvar');
                 }
@@ -290,7 +448,8 @@ export const CreateVideo = () => {
             };
             
             await saveCapturedMedia(mediaData);
-            Alert.alert('✅ Sucesso!', 'Foto tirada e salva!');
+            // Abrir modal de publicação
+            openPublishModal(mediaData);
             
         } catch (error: any) {
             console.error('❌ Erro:', error);
@@ -737,6 +896,137 @@ export const CreateVideo = () => {
                             </View>
                         </View>
                     )}
+                </View>
+            </Modal>
+
+            {/* Publish Modal */}
+            <Modal
+                visible={showPublishModal}
+                animationType="slide"
+                transparent={false}
+                onRequestClose={() => setShowPublishModal(false)}
+            >
+                <View style={styles.publishModalContainer}>
+                    {/* Header */}
+                    <View style={styles.publishModalHeader}>
+                        <TouchableOpacity onPress={() => setShowPublishModal(false)}>
+                            <Ionicons name="close" size={28} color="#FFFFFF" />
+                        </TouchableOpacity>
+                        <Text style={styles.publishModalTitle}>Publicar</Text>
+                        <TouchableOpacity onPress={publishPost}>
+                            <Text style={styles.publishButton}>Publicar</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Preview */}
+                    {mediaToPublish && (
+                        <View style={styles.publishPreview}>
+                            <Image 
+                                source={{ uri: mediaToPublish.uri }} 
+                                style={styles.publishPreviewImage}
+                                resizeMode="cover"
+                            />
+                            <View style={styles.publishPreviewBadge}>
+                                <Ionicons 
+                                    name={mediaToPublish.type === 'video' ? 'videocam' : 'camera'} 
+                                    size={16} 
+                                    color="#FFFFFF" 
+                                />
+                            </View>
+                        </View>
+                    )}
+
+                    {/* Form */}
+                    <View style={styles.publishForm}>
+                        {/* Título */}
+                        <View style={styles.publishFormGroup}>
+                            <Text style={styles.publishLabel}>Título *</Text>
+                            <TextInput
+                                style={styles.publishInput}
+                                placeholder="Adicione um título chamativo..."
+                                placeholderTextColor="rgba(255,255,255,0.5)"
+                                value={postTitle}
+                                onChangeText={setPostTitle}
+                                maxLength={100}
+                            />
+                            <Text style={styles.publishCharCount}>{postTitle.length}/100</Text>
+                        </View>
+
+                        {/* Descrição */}
+                        <View style={styles.publishFormGroup}>
+                            <Text style={styles.publishLabel}>Descrição</Text>
+                            <TextInput
+                                style={[styles.publishInput, styles.publishTextArea]}
+                                placeholder="Conte mais sobre seu conteúdo..."
+                                placeholderTextColor="rgba(255,255,255,0.5)"
+                                value={postDescription}
+                                onChangeText={setPostDescription}
+                                multiline
+                                numberOfLines={4}
+                                maxLength={500}
+                            />
+                            <Text style={styles.publishCharCount}>{postDescription.length}/500</Text>
+                        </View>
+
+                        {/* Hashtags */}
+                        <View style={styles.publishFormGroup}>
+                            <Text style={styles.publishLabel}>Hashtags</Text>
+                            <TextInput
+                                style={styles.publishInput}
+                                placeholder="#tikaboom #viral #trending"
+                                placeholderTextColor="rgba(255,255,255,0.5)"
+                                value={postHashtags}
+                                onChangeText={setPostHashtags}
+                            />
+                            <Text style={styles.publishHint}>Separe hashtags com espaços</Text>
+                        </View>
+
+                        {/* Privacidade */}
+                        <View style={styles.publishFormGroup}>
+                            <Text style={styles.publishLabel}>Privacidade</Text>
+                            <View style={styles.publishPrivacyOptions}>
+                                <TouchableOpacity 
+                                    style={[
+                                        styles.publishPrivacyOption,
+                                        !isPrivatePost && styles.publishPrivacyOptionActive
+                                    ]}
+                                    onPress={() => setIsPrivatePost(false)}
+                                >
+                                    <Ionicons 
+                                        name="earth" 
+                                        size={20} 
+                                        color={!isPrivatePost ? "#FF0050" : "#FFFFFF"} 
+                                    />
+                                    <Text style={[
+                                        styles.publishPrivacyText,
+                                        !isPrivatePost && styles.publishPrivacyTextActive
+                                    ]}>
+                                        Público
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity 
+                                    style={[
+                                        styles.publishPrivacyOption,
+                                        isPrivatePost && styles.publishPrivacyOptionActive
+                                    ]}
+                                    onPress={() => setIsPrivatePost(true)}
+                                >
+                                    <Ionicons 
+                                        name="lock-closed" 
+                                        size={20} 
+                                        color={isPrivatePost ? "#FF0050" : "#FFFFFF"} 
+                                    />
+                                    <Text style={[
+                                        styles.publishPrivacyText,
+                                        isPrivatePost && styles.publishPrivacyTextActive
+                                    ]}>
+                                        Privado
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
                 </View>
             </Modal>
         </View>

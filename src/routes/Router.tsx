@@ -10,6 +10,7 @@ import { Chat } from "../pages/Chat/Chat";
 import { Search } from "../pages/Search/Search";
 import { Live } from "../pages/Live/Live";
 import { Friends } from "../pages/Friends/Friends";
+import { Settings } from "../pages/Settings/Settings";
 import { useNavigation } from "./NavigationContext";
 import { BottomNavigation } from "../components/BottomNavigation/BottomNavigation";
 
@@ -40,6 +41,8 @@ export const Router = () => {
         return <Live />;
       case "Friends":
         return <Friends />;
+      case "Settings":
+        return <Settings />;
       default:
         return <Login />;
     }

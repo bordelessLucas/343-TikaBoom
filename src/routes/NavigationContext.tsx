@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
 
-export type ScreenName = "Login" | "Register" | "Home" | "MyBets" | "ProfileConfig" | "Wallet" | "Profile" | "Messages" | "CreateVideo" | "MyProfile" | "Chat" | "Live" | "Search" | "Friends";
+export type ScreenName = "Login" | "Register" | "Home" | "MyBets" | "ProfileConfig" | "Wallet" | "Profile" | "Messages" | "CreateVideo" | "MyProfile" | "Chat" | "Live" | "Search" | "Friends" | "Settings";
 
 interface NavigationContextType {
   currentScreen: ScreenName;
-  navigate: (screen: ScreenName) => void;
+  navigate: (screen: ScreenName, params?: any) => void;
 }
 
 const NavigationContext = createContext<NavigationContextType | undefined>(
@@ -14,7 +14,14 @@ const NavigationContext = createContext<NavigationContextType | undefined>(
 export const NavigationProvider = ({ children }: { children: ReactNode }) => {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>("Login");
 
-  const navigate = (screen: ScreenName) => {
+  const navigate = (screen: ScreenName, params?: any) => {
+    // Salvar parâmetros no AsyncStorage se necessário
+    if (params) {
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      if (params.userId) {
+        AsyncStorage.setItem('viewingUserId', params.userId);
+      }
+    }
     setCurrentScreen(screen);
   };
 

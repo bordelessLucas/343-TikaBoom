@@ -1,0 +1,122 @@
+import { StyleSheet } from 'react-native';
+
+export const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingTop: 50,
+        paddingBottom: 20,
+    },
+    backButton: {
+        padding: 5,
+    },
+    headerTitle: {
+        color: '#FFFFFF',
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    scrollView: {
+        flex: 1,
+    },
+    section: {
+        marginBottom: 30,
+        paddingHorizontal: 20,
+    },
+    sectionTitle: {
+        color: '#999',
+        fontSize: 12,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginBottom: 12,
+    },
+    settingItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 12,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    settingItemLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    iconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(111, 1, 117, 0.3)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    settingItemText: {
+        flex: 1,
+    },
+    settingItemTitle: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 2,
+    },
+    settingItemSubtitle: {
+        color: '#999',
+        fontSize: 13,
+    },
+    logoutButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+        borderRadius: 12,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 107, 107, 0.3)',
+    },
+    logoutText: {
+        color: '#FF6B6B',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    deleteButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        backgroundColor: 'rgba(255, 107, 107, 0.05)',
+        borderRadius: 12,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 107, 107, 0.2)',
+    },
+    deleteText: {
+        color: '#FF6B6B',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    versionContainer: {
+        alignItems: 'center',
+        paddingVertical: 30,
+        paddingBottom: 50,
+    },
+    versionText: {
+        color: '#666',
+        fontSize: 12,
+    },
+});

@@ -29,6 +29,13 @@ export const styles = StyleSheet.create({
     editButton: {
         padding: 5,
     },
+    headerActions: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    settingsButton: {
+        padding: 5,
+    },
     editActions: {
         flexDirection: 'row',
         gap: 15,
@@ -57,6 +64,13 @@ export const styles = StyleSheet.create({
     profileImageContainer: {
         marginBottom: 15,
         position: 'relative',
+    },
+    profileImage: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        borderWidth: 2,
+        borderColor: 'rgba(255,255,255,0.3)',
     },
     profileImagePlaceholder: {
         width: 100,
@@ -187,21 +201,67 @@ export const styles = StyleSheet.create({
         paddingVertical: 5,
         minHeight: 60,
     },
-    gridSelector: {
+    tabsContainer: {
+        flexDirection: 'row',
         width: '100%',
         paddingHorizontal: 20,
         marginBottom: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.1)',
     },
-    gridButton: {
+    tab: {
+        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 5,
-        paddingVertical: 10,
+        justifyContent: 'center',
+        gap: 6,
+        paddingVertical: 12,
+        borderBottomWidth: 2,
+        borderBottomColor: 'transparent',
     },
-    gridUnderline: {
-        height: 2,
-        backgroundColor: '#FFFFFF',
+    tabActive: {
+        borderBottomColor: '#FFFFFF',
+    },
+    tabText: {
+        color: '#999',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    tabTextActive: {
+        color: '#FFFFFF',
+    },
+    usernameInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        width: '100%',
+        marginTop: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.3)',
+    },
+    usernameLabel: {
+        color: '#999',
+        fontSize: 16,
+        marginRight: 5,
+    },
+    editUsernameInput: {
+        flex: 1,
+        color: '#999',
+        fontSize: 14,
+        paddingVertical: 5,
+    },
+    editInputError: {
+        borderBottomColor: '#FF6B6B',
+    },
+    errorText: {
+        color: '#FF6B6B',
+        fontSize: 12,
         marginTop: 5,
+        textAlign: 'center',
+    },
+    loadingContainer: {
+        paddingVertical: 60,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     videosGrid: {
         paddingHorizontal: 2,
@@ -223,6 +283,10 @@ export const styles = StyleSheet.create({
         overflow: 'hidden',
         marginBottom: 5,
     },
+    thumbnailImage: {
+        width: '100%',
+        height: '100%',
+    },
     thumbnailPlaceholder: {
         width: '100%',
         height: '100%',
@@ -239,6 +303,64 @@ export const styles = StyleSheet.create({
     viewCount: {
         color: '#FFFFFF',
         fontSize: 11,
+    },
+    privacyContainer: {
+        width: '100%',
+        paddingHorizontal: 20,
+        marginTop: 12,
+    },
+    privacyToggle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 12,
+    },
+    privacyText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    emptyPosts: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 60,
+    },
+    emptyPostsText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '600',
+        marginTop: 16,
+    },
+    emptyPostsSubtext: {
+        color: 'rgba(255,255,255,0.6)',
+        fontSize: 14,
+        marginTop: 8,
+    },
+    logoutContainer: {
+        width: '100%',
+        paddingHorizontal: 20,
+        marginTop: 20,
+        marginBottom: 10,
+    },
+    logoutButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 107, 107, 0.3)',
+    },
+    logoutText: {
+        color: '#FF6B6B',
+        fontSize: 16,
+        fontWeight: '600',
     },
 });
 

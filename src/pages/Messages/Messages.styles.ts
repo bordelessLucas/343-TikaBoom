@@ -37,6 +37,11 @@ export const styles = StyleSheet.create({
         position: 'relative',
         marginRight: 15,
     },
+    profileImage: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+    },
     profileImagePlaceholder: {
         width: 50,
         height: 50,
@@ -173,6 +178,24 @@ export const styles = StyleSheet.create({
         backgroundColor: '#FF6B6B',
         marginTop: 10,
         marginLeft: 10,
+    },
+    sectionDivider: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 20,
+        marginTop: 30,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+    },
+    sectionTitle: {
+        color: 'rgba(255,255,255,0.6)',
+        fontSize: 12,
+        fontWeight: '600',
+        marginHorizontal: 15,
+        textTransform: 'uppercase',
     },
 });
 

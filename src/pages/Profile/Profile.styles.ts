@@ -35,6 +35,13 @@ export const styles = StyleSheet.create({
     profileImageContainer: {
         marginBottom: 15,
     },
+    profileImage: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        borderWidth: 2,
+        borderColor: 'rgba(255,255,255,0.3)',
+    },
     profileImagePlaceholder: {
         width: 100,
         height: 100,
@@ -44,6 +51,26 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 2,
         borderColor: 'rgba(255,255,255,0.3)',
+    },
+    followingButton: {
+        backgroundColor: 'rgba(255,255,255,0.1)',
+    },
+    followingButtonText: {
+        color: '#FFFFFF',
+    },
+    thumbnailImage: {
+        width: '100%',
+        height: '100%',
+    },
+    emptyPosts: {
+        paddingVertical: 60,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emptyPostsText: {
+        color: 'rgba(255,255,255,0.5)',
+        fontSize: 14,
+        marginTop: 10,
     },
     profileInfo: {
         alignItems: 'center',

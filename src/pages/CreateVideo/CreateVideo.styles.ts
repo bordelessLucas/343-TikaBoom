@@ -520,5 +520,116 @@ export const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '600',
     },
+    // Publish Modal
+    publishModalContainer: {
+        flex: 1,
+        backgroundColor: '#000000',
+    },
+    publishModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingTop: 50,
+        paddingBottom: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.1)',
+    },
+    publishModalTitle: {
+        color: '#FFFFFF',
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    publishButton: {
+        color: '#FF0050',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    publishPreview: {
+        width: '100%',
+        height: 200,
+        backgroundColor: '#1a1a1a',
+        position: 'relative',
+    },
+    publishPreviewImage: {
+        width: '100%',
+        height: '100%',
+    },
+    publishPreviewBadge: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        borderRadius: 20,
+        width: 32,
+        height: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    publishForm: {
+        flex: 1,
+        padding: 20,
+    },
+    publishFormGroup: {
+        marginBottom: 24,
+    },
+    publishLabel: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 8,
+    },
+    publishInput: {
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 12,
+        padding: 16,
+        color: '#FFFFFF',
+        fontSize: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    publishTextArea: {
+        height: 120,
+        textAlignVertical: 'top',
+    },
+    publishCharCount: {
+        color: 'rgba(255,255,255,0.5)',
+        fontSize: 12,
+        marginTop: 4,
+        textAlign: 'right',
+    },
+    publishHint: {
+        color: 'rgba(255,255,255,0.5)',
+        fontSize: 12,
+        marginTop: 4,
+    },
+    publishPrivacyOptions: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    publishPrivacyOption: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 12,
+        padding: 16,
+        borderWidth: 2,
+        borderColor: 'transparent',
+    },
+    publishPrivacyOptionActive: {
+        borderColor: '#FF0050',
+        backgroundColor: 'rgba(255,0,80,0.1)',
+    },
+    publishPrivacyText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    publishPrivacyTextActive: {
+        color: '#FF0050',
+    },
 });
 
