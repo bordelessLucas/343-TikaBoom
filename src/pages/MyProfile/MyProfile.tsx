@@ -331,6 +331,12 @@ export const MyProfile = () => {
                     ) : (
                         <View style={styles.headerActions}>
                             <TouchableOpacity 
+                                onPress={() => navigate('Wallet')} 
+                                style={styles.walletButton}
+                            >
+                                <MaterialIcons name="account-balance-wallet" size={24} color="#FFFFFF" />
+                            </TouchableOpacity>
+                            <TouchableOpacity 
                                 onPress={() => navigate('Settings')} 
                                 style={styles.settingsButton}
                             >

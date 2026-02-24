@@ -1,0 +1,220 @@
+import { StyleSheet } from 'react-native';
+
+export const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingTop: 50,
+        paddingBottom: 20,
+    },
+    backButton: {
+        padding: 5,
+    },
+    headerTitle: {
+        color: '#FFFFFF',
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    scrollView: {
+        flex: 1,
+    },
+    balanceCard: {
+        marginHorizontal: 20,
+        marginBottom: 20,
+        borderRadius: 20,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(111, 1, 117, 0.3)',
+    },
+    balanceCardGradient: {
+        padding: 24,
+    },
+    balanceLabel: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 14,
+        marginBottom: 8,
+    },
+    balanceAmount: {
+        color: '#FFFFFF',
+        fontSize: 36,
+        fontWeight: 'bold',
+        marginBottom: 16,
+    },
+    balanceStats: {
+        flexDirection: 'row',
+        gap: 16,
+    },
+    balanceStatItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    balanceStatText: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontSize: 12,
+    },
+    actionButtons: {
+        flexDirection: 'row',
+        gap: 12,
+        paddingHorizontal: 20,
+        marginBottom: 24,
+    },
+    actionButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    addButton: {
+        backgroundColor: 'rgba(76, 175, 80, 0.2)',
+        borderColor: 'rgba(76, 175, 80, 0.4)',
+    },
+    withdrawButton: {
+        backgroundColor: 'rgba(255, 107, 107, 0.2)',
+        borderColor: 'rgba(255, 107, 107, 0.4)',
+    },
+    actionButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    quickStats: {
+        flexDirection: 'row',
+        gap: 12,
+        paddingHorizontal: 20,
+        marginBottom: 24,
+    },
+    quickStatCard: {
+        flex: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 12,
+        padding: 16,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    quickStatValue: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: 'bold',
+        marginTop: 8,
+        marginBottom: 4,
+    },
+    quickStatLabel: {
+        color: '#999',
+        fontSize: 11,
+    },
+    transactionsHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        marginBottom: 16,
+    },
+    transactionsTitle: {
+        color: '#FFFFFF',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    transactionsList: {
+        paddingHorizontal: 20,
+    },
+    transactionItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 12,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    transactionLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    transactionIconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    transactionInfo: {
+        flex: 1,
+    },
+    transactionDescription: {
+        color: '#FFFFFF',
+        fontSize: 15,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    transactionDate: {
+        color: '#999',
+        fontSize: 12,
+    },
+    transactionRight: {
+        alignItems: 'flex-end',
+    },
+    transactionAmount: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 4,
+    },
+    pendingBadge: {
+        backgroundColor: 'rgba(255, 193, 7, 0.2)',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 193, 7, 0.4)',
+    },
+    pendingText: {
+        color: '#FFC107',
+        fontSize: 10,
+        fontWeight: '600',
+    },
+    failedBadge: {
+        backgroundColor: 'rgba(255, 107, 107, 0.2)',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 107, 107, 0.4)',
+    },
+    failedText: {
+        color: '#FF6B6B',
+        fontSize: 10,
+        fontWeight: '600',
+    },
+    emptyTransactions: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 60,
+        paddingHorizontal: 20,
+    },
+    emptyTransactionsText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '600',
+        marginTop: 16,
+    },
+    emptyTransactionsSubtext: {
+        color: 'rgba(255, 255, 255, 0.6)',
+        fontSize: 14,
+        marginTop: 8,
+    },
+});
