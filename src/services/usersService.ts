@@ -116,6 +116,26 @@ export const usersService = {
       });
       
       await batchInstance.commit();
+
+      // Criar notificação de follow
+      try {
+        const { notificationsService } = await import('./notificationsService');
+        const { authService } = await import('./authService');
+        const followerProfile = await authService.getUserProfile(followerId);
+        if (followerProfile) {
+          await notificationsService.createNotification({
+            userId: followingId,
+            type: 'follow',
+            actorId: followerId,
+            actorUsername: followerProfile.username,
+            actorPhotoURL: followerProfile.photoURL,
+            read: false,
+          });
+        }
+      } catch (notifError) {
+        console.error('⚠️ Erro ao criar notificação de follow:', notifError);
+        // Não falhar a operação de follow por causa da notificação
+      }
     } catch (error: any) {
       console.error('Erro ao seguir usuário:', {
         followerId,

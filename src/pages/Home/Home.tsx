@@ -5,6 +5,7 @@ import { TopBar } from '../../components/TopBar/TopBar';
 import { useNavigation } from '../../routes/NavigationContext';
 import { postsService, Post } from '../../services/postsService';
 import { styles } from './Home.styles';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { height } = Dimensions.get('window');
 
@@ -36,6 +37,53 @@ export const Home = () => {
             loadFeed();
         }
     }, [currentScreen]);
+
+    useEffect(() => {
+        // Verificar post específico após o feed carregar
+        if (feedItems.length > 0 && !loading) {
+            checkForSpecificPost();
+        }
+    }, [feedItems, loading]);
+
+    const checkForSpecificPost = async () => {
+        try {
+            const viewingPostId = await AsyncStorage.getItem('viewingPostId');
+            const openComments = await AsyncStorage.getItem('openComments');
+            
+            if (viewingPostId) {
+                // Limpar o AsyncStorage
+                await AsyncStorage.removeItem('viewingPostId');
+                await AsyncStorage.removeItem('openComments');
+                
+                // Encontrar o índice do post
+                const postIndex = feedItems.findIndex(item => item.postId === viewingPostId);
+                if (postIndex !== -1 && flatListRef.current) {
+                    // Aguardar um pouco para garantir que o FlatList está renderizado
+                    setTimeout(() => {
+                        try {
+                            // Scroll para o post
+                            flatListRef.current?.scrollToIndex({ 
+                                index: postIndex, 
+                                animated: true 
+                            });
+                            setCurrentIndex(postIndex);
+                            
+                            // Se deve abrir comentários, salvar flag para o VideoItem
+                            if (openComments === 'true') {
+                                AsyncStorage.setItem('shouldOpenComments', 'true');
+                            }
+                        } catch (error) {
+                            console.error('Erro ao fazer scroll para o post:', error);
+                        }
+                    }, 500);
+                } else {
+                    console.warn('Post não encontrado no feed:', viewingPostId);
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao verificar post específico:', error);
+        }
+    };
 
     const loadFeed = async () => {
         try {

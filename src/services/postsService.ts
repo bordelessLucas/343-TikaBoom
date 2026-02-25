@@ -409,6 +409,30 @@ export const postsService = {
           newLikedByCount: newLikedBy.length,
           userInArray: newLikedBy.includes(userId),
         });
+
+        // Criar notificação de like (se não for o próprio autor)
+        try {
+          if (updatedPost.authorId !== userId) {
+            const { notificationsService } = await import('./notificationsService');
+            const { authService } = await import('./authService');
+            const actorProfile = await authService.getUserProfile(userId);
+            if (actorProfile) {
+              await notificationsService.createNotification({
+                userId: updatedPost.authorId,
+                type: 'like',
+                actorId: userId,
+                actorUsername: actorProfile.username,
+                actorPhotoURL: actorProfile.photoURL,
+                postId: postId,
+                postTitle: updatedPost.title,
+                read: false,
+              });
+            }
+          }
+        } catch (notifError) {
+          console.error('⚠️ Erro ao criar notificação de like:', notifError);
+          // Não falhar a operação de like por causa da notificação
+        }
         
         return { liked: true, likes: newLikes };
       }
@@ -494,9 +518,36 @@ export const postsService = {
       await setDoc(commentRef, comment);
       
       // Incrementar contador de comentários do post
+      const postDoc = await getDoc(doc(db, 'posts', postId));
+      if (!postDoc.exists()) {
+        throw new Error('Post não encontrado');
+      }
+      const post = postDoc.data() as Post;
+      
       await updateDoc(doc(db, 'posts', postId), {
         comments: increment(1),
       });
+
+      // Criar notificação de comentário (se não for o próprio autor)
+      try {
+        if (post.authorId !== commentData.authorId) {
+          const { notificationsService } = await import('./notificationsService');
+          await notificationsService.createNotification({
+            userId: post.authorId,
+            type: 'comment',
+            actorId: commentData.authorId,
+            actorUsername: commentData.authorUsername,
+            actorPhotoURL: commentData.authorPhotoURL,
+            postId: postId,
+            postTitle: post.title,
+            commentText: commentData.text,
+            read: false,
+          });
+        }
+      } catch (notifError) {
+        console.error('⚠️ Erro ao criar notificação de comentário:', notifError);
+        // Não falhar a operação de comentário por causa da notificação
+      }
       
       return commentRef.id;
     } catch (error: any) {

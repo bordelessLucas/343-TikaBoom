@@ -8,6 +8,7 @@ import { ShareModal } from '../ShareModal/ShareModal';
 import { useNavigation } from '../../routes/NavigationContext';
 import { auth } from '../../lib/firebaseconfig';
 import { postsService } from '../../services/postsService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Comment {
     id: string;
@@ -92,10 +93,27 @@ export const VideoItem = ({
                 };
                 reloadState();
             }
+
+            // Verificar se deve abrir comentários automaticamente
+            if (postId && !commentsVisible) {
+                const checkShouldOpenComments = async () => {
+                    try {
+                        const shouldOpen = await AsyncStorage.getItem('shouldOpenComments');
+                        if (shouldOpen === 'true') {
+                            await AsyncStorage.removeItem('shouldOpenComments');
+                            setCommentsVisible(true);
+                        }
+                    } catch (error) {
+                        console.error('Erro ao verificar se deve abrir comentários:', error);
+                    }
+                };
+                // Aguardar um pouco para garantir que o vídeo está carregado
+                setTimeout(checkShouldOpenComments, 500);
+            }
         } else {
             videoRef.current?.pauseAsync();
         }
-    }, [isActive, postId, hasViewed, isLoadingState]);
+    }, [isActive, postId, hasViewed, isLoadingState, commentsVisible]);
 
     // Verificar se o usuário já curtiu/salvou e sincronizar estado
     useEffect(() => {

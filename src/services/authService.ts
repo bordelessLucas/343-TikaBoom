@@ -3,6 +3,7 @@ import {
   signInWithEmailAndPassword, 
   signOut, 
   updateProfile,
+  onAuthStateChanged,
   User,
   UserCredential 
 } from 'firebase/auth';
@@ -40,6 +41,28 @@ export const authService = {
       // Atualizar perfil no Auth
       await updateProfile(userCredential.user, { displayName });
       console.log('✅ Perfil do Auth atualizado');
+
+      // Aguardar o estado de autenticação ser confirmado pelo Firebase
+      // antes de tentar gravar no Firestore
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          unsubscribe();
+          reject(new Error('Timeout ao aguardar autenticação'));
+        }, 10000);
+
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+          if (user && user.uid === userCredential.user.uid) {
+            clearTimeout(timeout);
+            unsubscribe();
+            resolve();
+          }
+        });
+      });
+      console.log('✅ Estado de autenticação confirmado');
+
+      // Forçar renovação do token
+      await userCredential.user.getIdToken(true);
+      console.log('✅ Token renovado');
       
       // Criar perfil no Firestore
       const userProfile: UserProfile & { followingList?: string[]; followersList?: string[] } = {
@@ -53,11 +76,13 @@ export const authService = {
         likes: 0,
         isPrivate: false,
         createdAt: Date.now(),
-        followingList: [], // Inicializar array de seguindo
-        followersList: [], // Inicializar array de seguidores
+        followingList: [],
+        followersList: [],
       };
       
       console.log('📝 Criando perfil no Firestore...');
+      console.log('🔑 UID do usuário:', userCredential.user.uid);
+      console.log('🔑 auth.currentUser:', auth.currentUser?.uid);
       await setDoc(doc(db, 'users', userCredential.user.uid), userProfile);
       console.log('✅ Perfil criado no Firestore');
       
