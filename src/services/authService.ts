@@ -64,12 +64,22 @@ export const authService = {
       await userCredential.user.getIdToken(true);
       console.log('✅ Token renovado');
       
+      // Verificar se username está disponível (agora que está autenticado)
+      const usernameLower = username.toLowerCase();
+      const isAvailable = await this.isUsernameAvailable(usernameLower);
+      if (!isAvailable) {
+        // Deletar o usuário do Auth se o username não estiver disponível
+        await userCredential.user.delete();
+        throw new Error('Este username já está em uso. Escolha outro.');
+      }
+      console.log('✅ Username disponível');
+      
       // Criar perfil no Firestore
       const userProfile: UserProfile & { followingList?: string[]; followersList?: string[] } = {
         uid: userCredential.user.uid,
         email,
         displayName,
-        username: username.toLowerCase(),
+        username: usernameLower,
         followers: 0,
         following: 0,
         posts: 0,

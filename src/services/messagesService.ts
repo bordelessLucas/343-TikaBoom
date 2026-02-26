@@ -257,7 +257,7 @@ export const messagesService = {
       if (unreadMessages.length === 0) return;
       
       const batch = await import('firebase/firestore').then(m => m.writeBatch);
-      const batchInstance = batch();
+      const batchInstance = batch(db);
       
       unreadMessages.forEach(msg => {
         const messageRef = doc(db, 'messages', msg.id);
@@ -310,5 +310,24 @@ export const messagesService = {
     });
     
     return unsubscribe;
+  },
+
+  // Obter total de mensagens não lidas de um usuário
+  async getTotalUnreadCount(userId: string): Promise<number> {
+    try {
+      const chats = await this.getUserChats(userId);
+      let totalUnread = 0;
+      
+      chats.forEach(chat => {
+        if (chat.unreadCount && chat.unreadCount[userId]) {
+          totalUnread += chat.unreadCount[userId];
+        }
+      });
+      
+      return totalUnread;
+    } catch (error: any) {
+      console.error('❌ Erro ao contar mensagens não lidas:', error);
+      return 0;
+    }
   },
 };

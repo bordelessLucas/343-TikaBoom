@@ -66,15 +66,7 @@ export const Register = () => {
         }
 
         try {
-            // Verificar se username está disponível
-            const isAvailable = await authService.isUsernameAvailable(formData.nickname);
-            if (!isAvailable) {
-                setError("Este username já está em uso");
-                setLoading(false);
-                return;
-            }
-
-            // Registrar com Firebase
+            // Registrar com Firebase (a verificação de username será feita internamente após autenticação)
             await authService.register(
                 formData.email,
                 formData.password,

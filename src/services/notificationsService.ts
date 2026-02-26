@@ -34,17 +34,58 @@ export const notificationsService = {
       const notificationsRef = collection(db, 'notifications');
       const newNotificationRef = doc(notificationsRef);
       
-      const notificationData = {
-        ...notification,
+      // Construir objeto limpo, removendo explicitamente campos undefined
+      const cleanNotification: any = {
+        userId: notification.userId,
+        type: notification.type,
+        actorId: notification.actorId,
+        actorUsername: notification.actorUsername,
+        read: notification.read || false,
         id: newNotificationRef.id,
         createdAt: Timestamp.now(),
-        read: notification.read || false,
       };
+      
+      // Incluir actorPhotoURL apenas se for uma string válida e não vazia
+      if (notification.actorPhotoURL != null && 
+          typeof notification.actorPhotoURL === 'string' && 
+          notification.actorPhotoURL.trim() !== '') {
+        cleanNotification.actorPhotoURL = notification.actorPhotoURL;
+      }
+      
+      // Incluir postId apenas se existir e não for undefined
+      if (notification.postId != null && notification.postId !== '') {
+        cleanNotification.postId = notification.postId;
+      }
+      
+      // Incluir postTitle apenas se existir e não for undefined
+      if (notification.postTitle != null && notification.postTitle !== '') {
+        cleanNotification.postTitle = notification.postTitle;
+      }
+      
+      // Incluir commentText apenas se existir e não for undefined
+      if (notification.commentText != null && notification.commentText !== '') {
+        cleanNotification.commentText = notification.commentText;
+      }
+      
+      // Garantir que nenhum campo undefined seja enviado
+      const finalData: any = {};
+      for (const key in cleanNotification) {
+        if (cleanNotification[key] !== undefined) {
+          finalData[key] = cleanNotification[key];
+        }
+      }
 
-      await setDoc(newNotificationRef, notificationData);
-      console.log('✅ Notificação criada:', notificationData.id);
+      await setDoc(newNotificationRef, finalData);
+      console.log('✅ Notificação criada:', finalData.id);
     } catch (error: any) {
       console.error('❌ Erro ao criar notificação:', error);
+      console.error('❌ Dados da notificação:', {
+        userId: notification.userId,
+        type: notification.type,
+        actorId: notification.actorId,
+        actorPhotoURL: notification.actorPhotoURL,
+        hasPhotoURL: notification.actorPhotoURL != null,
+      });
       throw new Error(error.message || 'Erro ao criar notificação');
     }
   },

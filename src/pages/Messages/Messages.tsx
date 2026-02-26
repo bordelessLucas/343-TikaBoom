@@ -197,7 +197,6 @@ export const Messages = () => {
                             <>
                                 {chats.map((chat) => {
                                     const user = auth.currentUser;
-                                    const unreadCount = user ? (chat.unreadCount[user.uid] || 0) : 0;
                                     
                                     return (
                                         <TouchableOpacity
@@ -214,11 +213,6 @@ export const Messages = () => {
                                                 ) : (
                                                     <View style={styles.profileImagePlaceholder}>
                                                         <MaterialIcons name="person" size={30} color="rgba(255,255,255,0.5)" />
-                                                    </View>
-                                                )}
-                                                {unreadCount > 0 && (
-                                                    <View style={styles.unreadBadge}>
-                                                        <Text style={styles.unreadText}>{unreadCount}</Text>
                                                     </View>
                                                 )}
                                             </View>
