@@ -10,6 +10,7 @@ import { postsService, Post } from '../../services/postsService';
 import { usersService } from '../../services/usersService';
 import { messagesService } from '../../services/messagesService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { FollowersModal } from '../../components/FollowersModal/FollowersModal';
 
 const { width } = Dimensions.get('window');
 const videoWidth = (width - 4) / 3;
@@ -21,6 +22,8 @@ export const Profile = () => {
     const [loading, setLoading] = useState(true);
     const [isFollowing, setIsFollowing] = useState(false);
     const [isCurrentUser, setIsCurrentUser] = useState(false);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [modalType, setModalType] = useState<'followers' | 'following'>('followers');
 
     useEffect(() => {
         loadProfile();
@@ -195,7 +198,11 @@ export const Profile = () => {
             colors={['#28002b', '#1a1a2e', '#0a0a1a']}
             style={styles.container}
         >
-            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                style={styles.scrollView} 
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+            >
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => navigate('Home')} style={styles.backButton}>
@@ -236,14 +243,28 @@ export const Profile = () => {
 
                     {/* Statistics */}
                     <View style={styles.statsContainer}>
-                        <View style={styles.statItem}>
+                        <TouchableOpacity 
+                            style={styles.statItem}
+                            onPress={() => {
+                                setModalType('following');
+                                setModalVisible(true);
+                            }}
+                            activeOpacity={0.7}
+                        >
                             <Text style={styles.statNumber}>{profileData.following}</Text>
                             <Text style={styles.statLabel}>Seguindo</Text>
-                        </View>
-                        <View style={styles.statItem}>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={styles.statItem}
+                            onPress={() => {
+                                setModalType('followers');
+                                setModalVisible(true);
+                            }}
+                            activeOpacity={0.7}
+                        >
                             <Text style={styles.statNumber}>{profileData.followers}</Text>
                             <Text style={styles.statLabel}>Seguidores</Text>
-                        </View>
+                        </TouchableOpacity>
                         <View style={styles.statItem}>
                             <Text style={styles.statNumber}>{profileData.posts}</Text>
                             <Text style={styles.statLabel}>Posts</Text>
@@ -304,6 +325,16 @@ export const Profile = () => {
                     )}
                 </View>
             </ScrollView>
+
+            {/* Followers/Following Modal */}
+            {profileData && (
+                <FollowersModal
+                    visible={modalVisible}
+                    onClose={() => setModalVisible(false)}
+                    userId={profileData.uid}
+                    type={modalType}
+                />
+            )}
         </LinearGradient>
     );
 };

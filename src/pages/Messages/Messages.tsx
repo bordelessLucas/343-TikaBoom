@@ -8,6 +8,7 @@ import { Notifications } from './Notifications';
 import { auth } from '../../lib/firebaseconfig';
 import { messagesService, Chat } from '../../services/messagesService';
 import { usersService, UserProfile } from '../../services/usersService';
+import { authService } from '../../services/authService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface ChatWithUser extends Chat {
@@ -24,13 +25,43 @@ export const Messages = () => {
     const [chats, setChats] = useState<ChatWithUser[]>([]);
     const [followingUsers, setFollowingUsers] = useState<UserProfile[]>([]);
     const [loading, setLoading] = useState(true);
+    const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+    const [storiesUsers, setStoriesUsers] = useState<UserProfile[]>([]);
 
     useEffect(() => {
         if (activeTab === 'messages') {
             loadChats();
             loadFollowingUsers();
+            loadCurrentUserProfile();
+            loadStoriesUsers();
         }
     }, [activeTab]);
+
+    const loadCurrentUserProfile = async () => {
+        try {
+            const user = auth.currentUser;
+            if (!user) return;
+            
+            const profile = await authService.getUserProfile(user.uid);
+            setCurrentUserProfile(profile);
+        } catch (error) {
+            console.error('Erro ao carregar perfil do usuário:', error);
+        }
+    };
+
+    const loadStoriesUsers = async () => {
+        try {
+            const user = auth.currentUser;
+            if (!user) return;
+            
+            // Buscar usuários seguidos que têm stories (por enquanto, apenas os seguidos)
+            const following = await usersService.getFollowing(user.uid);
+            setStoriesUsers(following);
+        } catch (error) {
+            console.error('Erro ao carregar stories:', error);
+            setStoriesUsers([]);
+        }
+    };
 
     const loadChats = async () => {
         try {
@@ -152,6 +183,68 @@ export const Messages = () => {
                 <TouchableOpacity style={styles.headerIcon}>
                     <MaterialIcons name="search" size={24} color="#FFFFFF" />
                 </TouchableOpacity>
+            </View>
+
+            {/* Stories Section */}
+            <View style={styles.storiesContainer}>
+                <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.storiesScrollContent}
+                >
+                    {/* Criar Story - Primeira bolinha */}
+                    <TouchableOpacity 
+                        style={styles.storyItem}
+                        onPress={() => navigate('CreateVideo')}
+                    >
+                        <View style={styles.storyCircle}>
+                            {currentUserProfile?.photoURL ? (
+                                <Image 
+                                    source={{ uri: currentUserProfile.photoURL }} 
+                                    style={styles.storyImage}
+                                />
+                            ) : (
+                                <View style={styles.storyPlaceholder}>
+                                    <MaterialIcons name="person" size={35} color="rgba(255,255,255,0.5)" />
+                                </View>
+                            )}
+                            <View style={styles.addStoryIcon}>
+                                <MaterialIcons name="add" size={22} color="#FFFFFF" />
+                            </View>
+                        </View>
+                        <Text style={styles.storyUsername} numberOfLines={1}>
+                            Seu story
+                        </Text>
+                    </TouchableOpacity>
+
+                    {/* Stories de outros usuários */}
+                    {storiesUsers.map((user) => (
+                        <TouchableOpacity 
+                            key={user.uid}
+                            style={styles.storyItem}
+                            onPress={() => {
+                                // Por enquanto, apenas navegar para o perfil
+                                // Pode ser expandido para abrir o story depois
+                            }}
+                        >
+                            <View style={styles.storyCircle}>
+                                {user.photoURL ? (
+                                    <Image 
+                                        source={{ uri: user.photoURL }} 
+                                        style={styles.storyImage}
+                                    />
+                                ) : (
+                                    <View style={styles.storyPlaceholder}>
+                                        <MaterialIcons name="person" size={35} color="rgba(255,255,255,0.5)" />
+                                    </View>
+                                )}
+                            </View>
+                            <Text style={styles.storyUsername} numberOfLines={1}>
+                                {user.username}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
             </View>
 
             {/* Tabs */}

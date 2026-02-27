@@ -100,6 +100,9 @@ export const styles = StyleSheet.create({
     },
     statItem: {
         alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        minWidth: 80,
     },
     statNumber: {
         color: '#FFFFFF',

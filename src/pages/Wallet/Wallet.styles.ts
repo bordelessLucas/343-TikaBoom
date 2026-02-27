@@ -104,7 +104,7 @@ export const styles = StyleSheet.create({
     },
     quickStatValue: {
         color: '#FFFFFF',
-        fontSize: 14,
+        fontSize: 11,
         fontWeight: 'bold',
         marginTop: 8,
         marginBottom: 4,
