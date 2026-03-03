@@ -14,6 +14,7 @@ import { toByteArray } from 'base64-js';
 import { auth, db, storage } from '../lib/firebaseconfig';
 
 export interface UserProfile {
+  isVerified: any;
   uid: string;
   email: string;
   displayName: string;

@@ -12,6 +12,10 @@ import { Live } from "../pages/Live/Live";
 import { Friends } from "../pages/Friends/Friends";
 import { Settings } from "../pages/Settings/Settings";
 import { Wallet } from "../pages/Wallet/Wallet";
+import { StoriesCreate } from "../pages/StoriesCreate/StoriesCreate";
+import { StoriesViewer } from "../pages/StoriesViewer/StoriesViewer";
+import { Groups } from "../pages/Groups/Groups";
+import { GroupChat } from "../pages/GroupChat/GroupChat";
 import { useNavigation } from "./NavigationContext";
 import { BottomNavigation } from "../components/BottomNavigation/BottomNavigation";
 
@@ -46,6 +50,14 @@ export const Router = () => {
         return <Settings />;
       case "Wallet":
         return <Wallet />;
+      case "StoriesCreate":
+        return <StoriesCreate />;
+      case "StoriesViewer":
+        return <StoriesViewer />;
+      case "Groups":
+        return <Groups />;
+      case "GroupChat":
+        return <GroupChat />;
       default:
         return <Login />;
     }

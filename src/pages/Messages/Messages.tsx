@@ -180,9 +180,17 @@ export const Messages = () => {
                 <Text style={styles.headerTitle}>
                     {activeTab === 'messages' ? 'Mensagens' : 'Notificações'}
                 </Text>
-                <TouchableOpacity style={styles.headerIcon}>
-                    <MaterialIcons name="search" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
+                <View style={styles.headerRight}>
+                    <TouchableOpacity style={styles.headerIcon}>
+                        <MaterialIcons name="search" size={24} color="#FFFFFF" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.headerIcon}
+                        onPress={() => navigate('Groups')}
+                    >
+                        <MaterialIcons name="groups" size={24} color="#FFFFFF" />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {/* Stories Section */}
@@ -193,10 +201,10 @@ export const Messages = () => {
                     contentContainerStyle={styles.storiesScrollContent}
                 >
                     {/* Criar Story - Primeira bolinha */}
-                    <TouchableOpacity 
-                        style={styles.storyItem}
-                        onPress={() => navigate('CreateVideo')}
-                    >
+                                <TouchableOpacity 
+                                    style={styles.storyItem}
+                                    onPress={() => navigate('StoriesCreate')}
+                                >
                         <View style={styles.storyCircle}>
                             {currentUserProfile?.photoURL ? (
                                 <Image 
@@ -222,10 +230,7 @@ export const Messages = () => {
                         <TouchableOpacity 
                             key={user.uid}
                             style={styles.storyItem}
-                            onPress={() => {
-                                // Por enquanto, apenas navegar para o perfil
-                                // Pode ser expandido para abrir o story depois
-                            }}
+                            onPress={() => navigate('StoriesViewer', { userId: user.uid })}
                         >
                             <View style={styles.storyCircle}>
                                 {user.photoURL ? (
