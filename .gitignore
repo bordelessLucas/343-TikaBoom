@@ -3,3 +3,11 @@ node_modules
 .env.local
 *.pem
 serviceAccount*.json
+.expo/
+dist/
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+*.orig.*
+web-build/

@@ -128,6 +128,7 @@ export const BattleItem = ({
     chatMessages,
     onSendMessage,
 }: BattleItemProps) => {
+    const chatScrollRef = useRef<ScrollView>(null);
     const playerA = useVideoPlayer(videoA, (p) => {
         p.loop = true;
         p.muted = false;
@@ -136,7 +137,6 @@ export const BattleItem = ({
         p.loop = true;
         p.muted = false;
     });
-    const chatScrollRef = useRef<ScrollView>(null);
     const [chatInput, setChatInput] = useState('');
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [showGiftsModal, setShowGiftsModal] = useState(false);
@@ -316,6 +316,7 @@ export const BattleItem = ({
                                 style={styles.video}
                                 contentFit="cover"
                                 nativeControls={false}
+                                surfaceType="textureView"
                             />
                             <LinearGradient
                                 colors={['transparent', 'rgba(0, 0, 0, 0.3)', 'rgba(0, 0, 0, 0.7)']}
@@ -343,6 +344,7 @@ export const BattleItem = ({
                                 style={styles.video}
                                 contentFit="cover"
                                 nativeControls={false}
+                                surfaceType="textureView"
                             />
                             <LinearGradient
                                 colors={['transparent', 'rgba(0, 0, 0, 0.3)', 'rgba(0, 0, 0, 0.7)']}

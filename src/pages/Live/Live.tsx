@@ -38,9 +38,9 @@ const mockBattles: Battle[] = [
         scoreB: 980,
         timer: 180,
         chatMessages: [
-            { id: '1', user: 'Lia', message: 'Vamos time A! 🔥', timestamp: 'agora' },
-            { id: '2', user: 'Caio', message: 'Mateus reagindo muito! 😎', timestamp: 'agora' },
-            { id: '3', user: 'Pri', message: 'Manda presente pra virar!', timestamp: 'agora' },
+    { id: '1', user: 'Lia', message: 'Vamos time A! 🔥', timestamp: 'agora' },
+    { id: '2', user: 'Caio', message: 'Mateus reagindo muito! 😎', timestamp: 'agora' },
+    { id: '3', user: 'Pri', message: 'Manda presente pra virar!', timestamp: 'agora' },
         ],
     },
     {
@@ -80,6 +80,7 @@ export const Live = () => {
     const [liveMode, setLiveMode] = useState<'lives' | 'battle'>('battle'); // Sub-opção: Lives ou Batalhas
     const [battles, setBattles] = useState<Battle[]>(mockBattles);
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [isChatDragging, setIsChatDragging] = useState(false);
     const flatListRef = useRef<FlatList>(null);
 
     useEffect(() => {
@@ -105,12 +106,12 @@ export const Live = () => {
         setBattles((prev) =>
             prev.map((battle) => {
                 if (battle.id === battleId) {
-                    const newMessage: ChatMessage = {
-                        id: Date.now().toString(),
-                        user: 'Você',
+            const newMessage: ChatMessage = {
+                id: Date.now().toString(),
+                user: 'Você',
                         message,
-                        timestamp: 'agora',
-                    };
+                timestamp: 'agora',
+            };
                     return {
                         ...battle,
                         chatMessages: [...battle.chatMessages, newMessage],
@@ -119,6 +120,14 @@ export const Live = () => {
                 return battle;
             })
         );
+    };
+
+    const handleChatDragStart = () => {
+        setIsChatDragging(true);
+    };
+
+    const handleChatDragEnd = () => {
+        setIsChatDragging(false);
     };
 
     const renderItem = ({ item, index }: { item: Battle; index: number }) => {
@@ -134,6 +143,8 @@ export const Live = () => {
                 isActive={index === currentIndex}
                 chatMessages={item.chatMessages}
                 onSendMessage={(message) => handleSendMessage(item.id, message)}
+                onChatDragStart={handleChatDragStart}
+                onChatDragEnd={handleChatDragEnd}
             />
         );
     };
@@ -162,6 +173,7 @@ export const Live = () => {
                 snapToInterval={height}
                 snapToAlignment="start"
                 decelerationRate="fast"
+                scrollEnabled={!isChatDragging}
                 onViewableItemsChanged={onViewableItemsChanged}
                 viewabilityConfig={viewabilityConfig}
                 getItemLayout={(data, index) => ({
