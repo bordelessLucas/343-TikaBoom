@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { View, Text, Dimensions, TouchableOpacity, ScrollView, TextInput, KeyboardAvoidingView, Platform, Animated, Modal, StyleSheet, ImageSourcePropType } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'react-native';
@@ -128,9 +128,15 @@ export const BattleItem = ({
     chatMessages,
     onSendMessage,
 }: BattleItemProps) => {
-    const videoARef = useRef<Video>(null);
-    const videoBRef = useRef<Video>(null);
     const chatScrollRef = useRef<ScrollView>(null);
+    const playerA = useVideoPlayer(videoA, (p) => {
+        p.loop = true;
+        p.muted = false;
+    });
+    const playerB = useVideoPlayer(videoB, (p) => {
+        p.loop = true;
+        p.muted = false;
+    });
     const [chatInput, setChatInput] = useState('');
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [showGiftsModal, setShowGiftsModal] = useState(false);
@@ -150,8 +156,8 @@ export const BattleItem = ({
 
     useEffect(() => {
         if (isActive) {
-            videoARef.current?.playAsync();
-            videoBRef.current?.playAsync();
+            playerA.play();
+            playerB.play();
             
             // Anima os scores de 0 até os valores reais
             setDisplayScoreA(0);
@@ -199,10 +205,10 @@ export const BattleItem = ({
                 animatedProgressA.removeListener(listenerProgress);
             });
         } else {
-            videoARef.current?.pauseAsync();
-            videoBRef.current?.pauseAsync();
+            playerA.pause();
+            playerB.pause();
         }
-    }, [isActive, scoreA, scoreB]);
+    }, [isActive, scoreA, scoreB, playerA, playerB]);
 
     const progressA = useMemo(() => {
         const total = scoreA + scoreB || 1;
@@ -305,14 +311,12 @@ export const BattleItem = ({
                 <View style={styles.videoContainer}>
                     <View style={[styles.frameBorder, { borderColor: '#000000' }]}>
                         <View style={styles.frameInner}>
-                            <Video
-                                ref={videoARef}
-                                source={{ uri: videoA }}
+                            <VideoView
+                                player={playerA}
                                 style={styles.video}
-                                resizeMode={ResizeMode.COVER}
-                                isLooping
-                                shouldPlay={isActive}
-                                isMuted={false}
+                                contentFit="cover"
+                                nativeControls={false}
+                                surfaceType="textureView"
                             />
                             <LinearGradient
                                 colors={['transparent', 'rgba(0, 0, 0, 0.3)', 'rgba(0, 0, 0, 0.7)']}
@@ -335,14 +339,12 @@ export const BattleItem = ({
                 <View style={styles.videoContainer}>
                     <View style={[styles.frameBorder, { borderColor: '#000000' }]}>
                         <View style={styles.frameInner}>
-                            <Video
-                                ref={videoBRef}
-                                source={{ uri: videoB }}
+                            <VideoView
+                                player={playerB}
                                 style={styles.video}
-                                resizeMode={ResizeMode.COVER}
-                                isLooping
-                                shouldPlay={isActive}
-                                isMuted={false}
+                                contentFit="cover"
+                                nativeControls={false}
+                                surfaceType="textureView"
                             />
                             <LinearGradient
                                 colors={['transparent', 'rgba(0, 0, 0, 0.3)', 'rgba(0, 0, 0, 0.7)']}

@@ -1,6 +1,6 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, Image, Alert } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Comments } from '../Comments/Comments';
@@ -49,7 +49,6 @@ export const VideoItem = ({
     postId,
     onView
 }: VideoItemProps) => {
-    const videoRef = useRef<Video>(null);
     const { navigate } = useNavigation();
     const [isLiked, setIsLiked] = useState(false);
     const [likes, setLikes] = useState(initialLikes);
@@ -60,9 +59,14 @@ export const VideoItem = ({
     const [hasViewed, setHasViewed] = useState(false);
     const [isLoadingState, setIsLoadingState] = useState(false);
 
+    const player = useVideoPlayer(videoUri, (p) => {
+        p.loop = true;
+        p.muted = false;
+    });
+
     useEffect(() => {
         if (isActive) {
-            videoRef.current?.playAsync();
+            player.play();
             
             // Incrementar visualizações quando o vídeo começa a tocar
             if (postId && !hasViewed) {
@@ -111,9 +115,9 @@ export const VideoItem = ({
                 setTimeout(checkShouldOpenComments, 500);
             }
         } else {
-            videoRef.current?.pauseAsync();
+            player.pause();
         }
-    }, [isActive, postId, hasViewed, isLoadingState, commentsVisible]);
+    }, [isActive, postId, hasViewed, isLoadingState, commentsVisible, player]);
 
     // Verificar se o usuário já curtiu/salvou e sincronizar estado
     useEffect(() => {
@@ -269,14 +273,11 @@ export const VideoItem = ({
 
     return (
         <View style={styles.container}>
-            <Video
-                ref={videoRef}
-                source={{ uri: videoUri }}
+            <VideoView
+                player={player}
                 style={styles.video}
-                resizeMode={ResizeMode.COVER}
-                isLooping
-                shouldPlay={isActive}
-                isMuted={false}
+                contentFit="cover"
+                nativeControls={false}
             />
             
             {/* Botões de interação na lateral direita */}
