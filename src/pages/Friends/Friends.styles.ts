@@ -55,6 +55,47 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     flex: 1,
   },
+  searchInput: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    flex: 1,
+  },
+  searchButton: {
+    padding: 4,
+  },
+  avatarImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+  },
+  bio: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  unfollowButton: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    minWidth: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  unfollowButtonText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 14,
+  },
   sectionTitle: {
     color: '#fff',
     fontSize: 18,

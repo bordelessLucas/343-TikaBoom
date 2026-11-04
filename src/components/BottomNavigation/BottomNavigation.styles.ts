@@ -58,6 +58,29 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
         borderRadius: 12,
     },
-  
+    iconContainer: {
+        position: 'relative',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    unreadBadge: {
+        position: 'absolute',
+        top: -6,
+        right: -8,
+        backgroundColor: '#FF0000',
+        borderRadius: 10,
+        minWidth: 20,
+        height: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 6,
+        borderWidth: 2,
+        borderColor: '#000000',
+    },
+    unreadBadgeText: {
+        color: '#FFFFFF',
+        fontSize: 11,
+        fontWeight: 'bold',
+    },
 });
 

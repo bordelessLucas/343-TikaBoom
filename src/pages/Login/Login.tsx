@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from "../../routes/NavigationContext";
+import { authService } from '../../services/authService';
 import { styles } from '../Login/Login.styles';
 const logo = require('../../../assets/tikafundo.png');
 	
@@ -41,24 +42,32 @@ export const Login = () => {
     };
     const handleLogin = async () => {
         setError("");
+        setLoading(true);
+        
         if (!formData.email.trim()) {
             setError("Por favor, insira seu email");
+            setLoading(false);
             return;
         }
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(formData.email)) {
             setError("Por favor, insira um email válido");
+            setLoading(false);
             return;
         }
 
         if (!formData.password.trim()) {
             setError("Por favor, insira sua senha");
+            setLoading(false);
             return;
         }
 
-        // Salvar ou remover credenciais baseado no "Manter login"
         try {
+            // Login com Firebase
+            await authService.login(formData.email, formData.password);
+            
+            // Salvar ou remover credenciais baseado no "Manter login"
             if (rememberMe) {
                 await AsyncStorage.setItem('savedEmail', formData.email);
                 await AsyncStorage.setItem('savedPassword', formData.password);
@@ -68,11 +77,13 @@ export const Login = () => {
                 await AsyncStorage.removeItem('savedPassword');
                 await AsyncStorage.setItem('rememberMe', 'false');
             }
-        } catch (error) {
-            console.log('Erro ao salvar credenciais:', error);
+            
+            navigate("Home");
+        } catch (error: any) {
+            setError(error.message || "Erro ao fazer login. Verifique suas credenciais.");
+        } finally {
+            setLoading(false);
         }
-
-        navigate("Home");
     };
 
     return (

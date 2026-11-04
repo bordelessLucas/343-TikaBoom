@@ -20,6 +20,11 @@ export const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: 'bold',
     },
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
     headerIcon: {
         padding: 5,
     },
@@ -36,6 +41,11 @@ export const styles = StyleSheet.create({
     profileImageContainer: {
         position: 'relative',
         marginRight: 15,
+    },
+    profileImage: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
     },
     profileImagePlaceholder: {
         width: 50,
@@ -173,6 +183,81 @@ export const styles = StyleSheet.create({
         backgroundColor: '#FF6B6B',
         marginTop: 10,
         marginLeft: 10,
+    },
+    sectionDivider: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 20,
+        marginTop: 30,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+    },
+    sectionTitle: {
+        color: 'rgba(255,255,255,0.6)',
+        fontSize: 12,
+        fontWeight: '600',
+        marginHorizontal: 15,
+        textTransform: 'uppercase',
+    },
+    storiesContainer: {
+        paddingVertical: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.1)',
+    },
+    storiesScrollContent: {
+        paddingHorizontal: 15,
+        alignItems: 'center',
+    },
+    storyItem: {
+        alignItems: 'center',
+        marginRight: 15,
+        width: 85,
+    },
+    storyCircle: {
+        width: 75,
+        height: 75,
+        borderRadius: 37.5,
+        borderWidth: 2.5,
+        borderColor: 'rgba(163, 0, 168, 0.8)',
+        marginBottom: 6,
+        position: 'relative',
+        overflow: 'visible',
+    },
+    storyImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 35,
+    },
+    storyPlaceholder: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 35,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    addStoryIcon: {
+        position: 'absolute',
+        bottom: -2,
+        right: -2,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: 'rgba(163, 0, 168, 0.9)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2.5,
+        borderColor: '#28002b',
+    },
+    storyUsername: {
+        color: '#FFFFFF',
+        fontSize: 12,
+        textAlign: 'center',
+        marginTop: 3,
+        maxWidth: 85,
     },
 });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, FlatList, Dimensions } from 'react-native';
+import { View, FlatList, Dimensions, Text, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { TopBar } from '../../components/TopBar/TopBar';
 import { BattleItem } from '../../components/BattleItem/BattleItem';
@@ -76,7 +76,8 @@ const mockBattles: Battle[] = [
 
 export const Live = () => {
     const { currentScreen } = useNavigation();
-    const [activeTab, setActiveTab] = useState<'forYou' | 'lives' | 'battle'>('battle');
+    const [activeTab, setActiveTab] = useState<'forYou' | 'lives'>('lives');
+    const [liveMode, setLiveMode] = useState<'lives' | 'battle'>('battle'); // Sub-opção: Lives ou Batalhas
     const [battles, setBattles] = useState<Battle[]>(mockBattles);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isChatDragging, setIsChatDragging] = useState(false);
@@ -84,7 +85,7 @@ export const Live = () => {
 
     useEffect(() => {
         if (currentScreen === 'Live') {
-            setActiveTab('battle');
+            setActiveTab('lives');
         }
     }, [currentScreen]);
 
@@ -155,7 +156,13 @@ export const Live = () => {
             end={{ x: 1, y: 1 }}
             style={styles.container}
         >
-            <TopBar activeTab={activeTab} onTabChange={setActiveTab} />
+            <TopBar 
+                activeTab={activeTab} 
+                onTabChange={setActiveTab}
+                liveMode={liveMode}
+                onLiveModeChange={setLiveMode}
+            />
+            
             <FlatList
                 ref={flatListRef}
                 data={battles}

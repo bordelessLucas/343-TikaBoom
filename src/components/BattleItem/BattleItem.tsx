@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { View, Text, Dimensions, TouchableOpacity, ScrollView, TextInput, KeyboardAvoidingView, Platform, Animated, PanResponder, Modal, StyleSheet } from 'react-native';
+import { View, Text, Dimensions, TouchableOpacity, ScrollView, TextInput, KeyboardAvoidingView, Platform, Animated, Modal, StyleSheet, ImageSourcePropType } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,34 +8,85 @@ import { styles } from './BattleItem.styles';
 
 interface Gift {
     id: string;
-    emoji: string;
     name: string;
     price: number;
+    imageUri?: ImageSourcePropType; // Para imagens customizadas
 }
 
-interface ActiveGift {
-    id: string;
-    emoji: string;
-    x: Animated.Value;
-    y: Animated.Value;
-    scale: Animated.Value;
-    opacity: Animated.Value;
-    rotation: Animated.Value;
-}
 
 const GIFTS: Gift[] = [
-    { id: '1', emoji: '❤️', name: 'Coração', price: 1 },
-    { id: '2', emoji: '🔥', name: 'Fogo', price: 5 },
-    { id: '3', emoji: '⭐', name: 'Estrela', price: 10 },
-    { id: '4', emoji: '⚡', name: 'Raio', price: 15 },
-    { id: '5', emoji: '🌹', name: 'Rosa', price: 20 },
-    { id: '6', emoji: '💎', name: 'Diamante', price: 50 },
-    { id: '7', emoji: '👑', name: 'Coroa', price: 100 },
-    { id: '8', emoji: '🎁', name: 'Presente', price: 200 },
-    { id: '9', emoji: '🚀', name: 'Foguete', price: 500 },
-    { id: '10', emoji: '💸', name: 'Dinheiro', price: 1000 },
+    { id: '1', name: 'Futuro', price: 1000, imageUri: require('../../../assets/futuro.png') as ImageSourcePropType },
+    { id: '2', name: 'Dragão', price: 5000, imageUri: require('../../../assets/dragaoft.png') as ImageSourcePropType },
+    { id: '3', name: 'Metamorfose', price: 3000, imageUri: require('../../../assets/metamorfose.png') as ImageSourcePropType },
+    { id: '4', name: 'Metamorfose', price: 4000, imageUri: require('../../../assets/metamorfoseEvolucao.png') as ImageSourcePropType },
+    { id: '5', name: 'Fada', price: 5000, imageUri: require('../../../assets/fadaMetamorfose.png') as ImageSourcePropType },
+    { id: '6', name: 'Borboleta', price: 5000, imageUri: require('../../../assets/borboleta.png') as ImageSourcePropType },
+    { id: '7', name: 'Borboleta', price: 6000, imageUri: require('../../../assets/BorboletaQ.png') as ImageSourcePropType },
+    { id: '8', name: 'Odisseia', price: 10000, imageUri: require('../../../assets/Espaco.png') as ImageSourcePropType },
+    { id: '9', name: 'Rugido de Aço', price: 20000, imageUri: require('../../../assets/aco.png') as ImageSourcePropType },
+    { id: '11',name: 'Cão Ski', price: 3000, imageUri: require('../../../assets/CaoSKT.png') as ImageSourcePropType },
+    { id: '12',name: 'O Estranho', price: 1000, imageUri: require('../../../assets/estranho.png') as ImageSourcePropType }, 
+    { id: '13',name: 'Família Leão', price: 20000, imageUri: require('../../../assets/leao.png') as ImageSourcePropType }, 
+    { id: '14',name: 'Guerreiro Fogo', price: 3000, imageUri: require('../../../assets/fogo.png') as ImageSourcePropType }, 
+    { id: '15',name: 'Tigre Neon', price: 20000, imageUri: require('../../../assets/tigreN.png') as ImageSourcePropType }, 
+    { id: '16',name: 'Sereias 1', price: 5000, imageUri: require('../../../assets/sereia.png') as ImageSourcePropType }, 
+    { id: '17',name: 'Sereias 2', price: 5000, imageUri: require('../../../assets/sereia.png') as ImageSourcePropType },  
+    { id: '18',name: 'Sereias 3', price: 5000, imageUri: require('../../../assets/sereia.png') as ImageSourcePropType }, 
+    { id: '19',name: 'Balão Marionete', price: 1000, imageUri: require('../../../assets/balao.png') as ImageSourcePropType }, 
+    { id: '20',name: 'Guerreiro do Mar', price: 2000, imageUri: require('../../../assets/agua.png') as ImageSourcePropType }, 
+    { id: '21', name: 'Guerreiro', price: 15000, imageUri: require('../../../assets/martelo.png') as ImageSourcePropType },
+    { id: '22', name: 'Tubarões', price: 15000, imageUri: require('../../../assets/tutu.png') as ImageSourcePropType },
+    { id: '23', name: 'Dinossauros', price: 10000, imageUri: require('../../../assets/Dino.png') as ImageSourcePropType },
+    { id: '24', name: 'Baleia Azul', price: 10000, imageUri: require('../../../assets/golfinho.png') as ImageSourcePropType },
+    { id: '25', name: 'Águia Leão', price: 25000, imageUri: require('../../../assets/aguia.png') as ImageSourcePropType },
+    { id: '26', name: 'Extraterrestre', price: 1000, imageUri: require('../../../assets/et.png') as ImageSourcePropType },
+    { id: '27', name: 'Carros de Asas', price: 2000, imageUri: require('../../../assets/carroA.png') as ImageSourcePropType },
+    { id: '28', name: 'Planeta Fantasia', price: 4000, imageUri: require('../../../assets/planeta.png') as ImageSourcePropType },
+    { id: '29', name: 'Baleia Arco-íris', price: 3000, imageUri: require('../../../assets/baleia.png') as ImageSourcePropType },
+    { id: '30', name: 'Chicabanga', price: 10000, imageUri: require('../../../assets/festa.png') as ImageSourcePropType },
+    { id: '31', name: 'Tika Boom!', price: 5000, imageUri: require('../../../assets/tikaB.png') as ImageSourcePropType },
+    { id: '32', name: 'Leão Alado', price: 50000, imageUri: require('../../../assets/leaoASA.png') as ImageSourcePropType },
+    { id: '33', name: 'Vila', price: 3000, imageUri: require('../../../assets/vila.png') as ImageSourcePropType },
+    { id: '34', name: 'Elefantes', price: 1000, imageUri: require('../../../assets/elefantes.png') as ImageSourcePropType },
+    { id: '35', name: 'Evolução', price: 15000, imageUri: require('../../../assets/evo.png') as ImageSourcePropType },
+    { id: '36', name: 'Sonho de Amor', price: 150, imageUri: require('../../../assets/amor.png') as ImageSourcePropType },
+    { id: '37', name: 'Super TB', price: 10000, imageUri: require('../../../assets/super.png') as ImageSourcePropType },
+    { id: '38', name: 'Coroa', price: 1000, imageUri: require('../../../assets/coroa.png') as ImageSourcePropType },
+    { id: '39', name: 'Boneca Raquel', price: 3000, imageUri: require('../../../assets/raquel.png') as ImageSourcePropType },
+    { id: '40', name: 'Confete', price: 1000, imageUri: require('../../../assets/confete.png') as ImageSourcePropType },
+    { id: '41', name: 'Luzes', price: 1000, imageUri: require('../../../assets/luzes.png') as ImageSourcePropType },
+    { id: '42', name: 'Beijo Quente', price: 200, imageUri: require('../../../assets/beijo.png') as ImageSourcePropType },
+    { id: '43', name: 'Troféu', price: 150, imageUri: require('../../../assets/trof.png') as ImageSourcePropType },
+    { id: '44', name: 'Emoji Pirado', price: 200, imageUri: require('../../../assets/emoji.png') as ImageSourcePropType },
+    { id: '45', name: 'Uau', price: 100, imageUri: require('../../../assets/uau.png') as ImageSourcePropType },
+    { id: '46', name: 'Neon', price: 100, imageUri: require('../../../assets/neon.png') as ImageSourcePropType },
+    { id: '47', name: 'Presente', price: 100, imageUri: require('../../../assets/presente.png') as ImageSourcePropType },
+    { id: '48', name: 'Trovão', price: 50, imageUri: require('../../../assets/trovao.png') as ImageSourcePropType },
+    { id: '49', name: 'Foguete', price: 30, imageUri: require('../../../assets/foguete.png') as ImageSourcePropType },
+    { id: '50', name: 'Estrela Cadente', price: 30, imageUri: require('../../../assets/estrela.png') as ImageSourcePropType },
+    { id: '51', name: 'Chapéu Festa', price: 30, imageUri: require('../../../assets/chapeu.png') as ImageSourcePropType },
+    { id: '52', name: 'Biscoito da Sorte', price: 50, imageUri: require('../../../assets/biscoito.png') as ImageSourcePropType },
+    { id: '53', name: 'Olho Piscando', price: 30, imageUri: require('../../../assets/Olho.png') as ImageSourcePropType },
+    { id: '54', name: 'Relógio Tika', price: 500, imageUri: require('../../../assets/relogio.png') as ImageSourcePropType },
+    { id: '55', name: 'Coração de Cristal', price: 500, imageUri: require('../../../assets/coracao.png') as ImageSourcePropType },
+    { id: '56', name: 'Martelo do Poder', price: 600, imageUri: require('../../../assets/martelo2.png') as ImageSourcePropType },
+    { id: '57', name: 'Coroa Diamante', price: 1000, imageUri: require('../../../assets/CoroaDima.png') as ImageSourcePropType },
+    { id: '58', name: 'Orbe Energia', price: 1000, imageUri: require('../../../assets/Orbe.png') as ImageSourcePropType },
+    { id: '59', name: 'Asa Neon', price: 500, imageUri: require('../../../assets/asa.png') as ImageSourcePropType },
+    { id: '60', name: 'Espada Lendária', price: 500, imageUri: require('../../../assets/Espada.png') as ImageSourcePropType },
+    { id: '61', name: 'Olho Cósmico', price: 500, imageUri: require('../../../assets/olhodnv.png') as ImageSourcePropType },
+    { id: '62', name: 'Dragão Mini', price: 1000, imageUri: require('../../../assets/dragaomini.png') as ImageSourcePropType },
+    { id: '63', name: 'Dado TikaBoom', price: 100, imageUri: require('../../../assets/dado.png') as ImageSourcePropType },
+    { id: '64', name: 'Chama Azul', price: 10, imageUri: require('../../../assets/chamaAZUL.png') as ImageSourcePropType },
+    { id: '65', name: 'Máscara', price: 500, imageUri: require('../../../assets/mascara.png') as ImageSourcePropType },
+    { id: '66', name: 'Livro', price: 200, imageUri: require('../../../assets/Livro.png') as ImageSourcePropType },
+    { id: '67', name: 'Escudo Energia', price: 200, imageUri: require('../../../assets/Escudo.png') as ImageSourcePropType },
+    { id: '68', name: 'Anel', price: 1000, imageUri: require('../../../assets/Anel.png') as ImageSourcePropType },
+    { id: '69', name: 'Livro Misterioso', price: 3000, imageUri: require('../../../assets/LivroMis.png') as ImageSourcePropType },
+    { id: '70', name: 'Relógio Tesouro', price: 8000, imageUri: require('../../../assets/relogio2.png') as ImageSourcePropType },
+    { id: '71', name: 'Relógio Mágico', price: 5000, imageUri: require('../../../assets/relogio3.png') as ImageSourcePropType },
 ];
-
+    
 const { width, height } = Dimensions.get('window');
 const VIDEO_WIDTH = width / 2;
 const TOP_BAR_HEIGHT = 60;
@@ -63,8 +114,6 @@ interface BattleItemProps {
     isActive: boolean;
     chatMessages: ChatMessage[];
     onSendMessage: (message: string) => void;
-    onChatDragStart?: () => void;
-    onChatDragEnd?: () => void;
 }
 
 export const BattleItem = ({
@@ -78,8 +127,6 @@ export const BattleItem = ({
     isActive,
     chatMessages,
     onSendMessage,
-    onChatDragStart,
-    onChatDragEnd,
 }: BattleItemProps) => {
     const videoARef = useRef<Video>(null);
     const videoBRef = useRef<Video>(null);
@@ -89,20 +136,12 @@ export const BattleItem = ({
     const [showGiftsModal, setShowGiftsModal] = useState(false);
     const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
     const [selectedSide, setSelectedSide] = useState<'A' | 'B' | null>(null);
-    const [activeGifts, setActiveGifts] = useState<ActiveGift[]>([]);
-    const giftIdCounter = useRef(0);
-    const [videoACenter, setVideoACenter] = useState<number>(width * 0.25);
-    const [videoBCenter, setVideoBCenter] = useState<number>(width * 0.75);
     const [displayScoreA, setDisplayScoreA] = useState(0);
     const [displayScoreB, setDisplayScoreB] = useState(0);
     const [displayProgressA, setDisplayProgressA] = useState(0);
     
     const chatOpacityAnim = useRef(new Animated.Value(0.6)).current;
     const chatHeightAnim = useRef(new Animated.Value(MIN_CHAT_HEIGHT)).current;
-    const dragY = useRef(0);
-    const currentHeight = useRef(MIN_CHAT_HEIGHT);
-    const [chatHeight, setChatHeight] = useState(MIN_CHAT_HEIGHT);
-    const isDraggingRef = useRef(false);
     
     // Animações para os scores
     const animatedScoreA = useRef(new Animated.Value(0)).current;
@@ -176,81 +215,9 @@ export const BattleItem = ({
         return `${minutes}:${seconds}`;
     };
 
-    const panResponder = useRef(
-        PanResponder.create({
-            onStartShouldSetPanResponder: () => true,
-            onStartShouldSetPanResponderCapture: () => true, // Captura imediatamente quando o toque começa no handle
-            onMoveShouldSetPanResponder: (_, gestureState) => {
-                // Captura o gesto se o movimento vertical for maior que o horizontal
-                // Isso prioriza o arraste do chat sobre o scroll do vídeo
-                return Math.abs(gestureState.dy) > Math.abs(gestureState.dx) && Math.abs(gestureState.dy) > 3;
-            },
-            onMoveShouldSetPanResponderCapture: (_, gestureState) => {
-                // Captura o gesto antes que outros componentes (como a FlatList) o processem
-                // Prioriza quando o movimento é principalmente vertical (arraste do chat)
-                // Usa um threshold menor para capturar mais cedo
-                return Math.abs(gestureState.dy) > Math.abs(gestureState.dx) && Math.abs(gestureState.dy) > 2;
-            },
-            onPanResponderTerminationRequest: () => false, // Não permite que outros componentes terminem o gesto
-            onPanResponderGrant: () => {
-                chatHeightAnim.setOffset(currentHeight.current);
-                chatHeightAnim.setValue(0);
-            },
-            onPanResponderMove: (_, gestureState) => {
-                // Desabilita o scroll da FlatList quando começar a mover verticalmente
-                if (!isDraggingRef.current && Math.abs(gestureState.dy) > 5 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx)) {
-                    isDraggingRef.current = true;
-                    onChatDragStart?.();
-                }
-                const newHeight = currentHeight.current - gestureState.dy;
-                const clampedHeight = Math.max(MIN_CHAT_HEIGHT, Math.min(MAX_CHAT_HEIGHT, newHeight));
-                chatHeightAnim.setValue(clampedHeight - currentHeight.current);
-                setChatHeight(clampedHeight);
-                const opacity = 0.6 + ((clampedHeight - MIN_CHAT_HEIGHT) / (MAX_CHAT_HEIGHT - MIN_CHAT_HEIGHT)) * 0.4;
-                chatOpacityAnim.setValue(Math.min(1, opacity));
-            },
-            onPanResponderRelease: (_, gestureState) => {
-                chatHeightAnim.flattenOffset();
-                const newHeight = currentHeight.current - gestureState.dy;
-                const clampedHeight = Math.max(MIN_CHAT_HEIGHT, Math.min(MAX_CHAT_HEIGHT, newHeight));
-                currentHeight.current = clampedHeight;
-                setChatHeight(clampedHeight);
-                const shouldBeOpen = clampedHeight > MIN_CHAT_HEIGHT + 20;
-                setIsChatOpen(shouldBeOpen);
-                Animated.spring(chatHeightAnim, {
-                    toValue: clampedHeight,
-                    useNativeDriver: false,
-                    tension: 50,
-                    friction: 8,
-                }).start();
-                const finalOpacity = shouldBeOpen ? 1 : 0.6;
-                Animated.spring(chatOpacityAnim, {
-                    toValue: finalOpacity,
-                    useNativeDriver: false,
-                    tension: 50,
-                    friction: 8,
-                }).start();
-                // Notifica que o arraste do chat terminou para reabilitar o scroll da FlatList
-                if (isDraggingRef.current) {
-                    isDraggingRef.current = false;
-                    onChatDragEnd?.();
-                }
-            },
-            onPanResponderTerminate: () => {
-                // Se o gesto for terminado por algum motivo, reabilita o scroll
-                chatHeightAnim.flattenOffset();
-                if (isDraggingRef.current) {
-                    isDraggingRef.current = false;
-                    onChatDragEnd?.();
-                }
-            },
-        })
-    ).current;
-
+    // Quando o chat é aberto, sempre usa o mesmo tamanho
     useEffect(() => {
-        if (isChatOpen && currentHeight.current <= MIN_CHAT_HEIGHT + 20) {
-            currentHeight.current = DEFAULT_OPEN_HEIGHT;
-            setChatHeight(DEFAULT_OPEN_HEIGHT);
+        if (isChatOpen) {
             Animated.parallel([
                 Animated.spring(chatOpacityAnim, {
                     toValue: 1,
@@ -265,9 +232,7 @@ export const BattleItem = ({
                     friction: 8,
                 }),
             ]).start();
-        } else if (!isChatOpen && currentHeight.current > MIN_CHAT_HEIGHT + 20) {
-            currentHeight.current = MIN_CHAT_HEIGHT;
-            setChatHeight(MIN_CHAT_HEIGHT);
+        } else {
             Animated.parallel([
                 Animated.spring(chatOpacityAnim, {
                     toValue: 0.6,
@@ -312,79 +277,9 @@ export const BattleItem = ({
         setSelectedGift(null);
         setSelectedSide(null);
         
-        // Usa frações fixas para garantir que o spawn respeite o lado escolhido
-        const spawnX = side === 'A' ? width * 0.22 : width * 0.78;
-        const spawnY = height * 0.40;
-        
-        // Cria múltiplas instâncias do presente para efeito de explosão
-        const giftCount = 8;
-        const newGifts: ActiveGift[] = [];
-        
-        for (let i = 0; i < giftCount; i++) {
-            const angle = (i / giftCount) * Math.PI * 2;
-            const distance = 150 + Math.random() * 100;
-            
-            // Inicializa os valores animados com a posição de spawn
-            const x = new Animated.Value(spawnX);
-            const y = new Animated.Value(spawnY);
-            const scale = new Animated.Value(0);
-            const opacity = new Animated.Value(1);
-            const rotation = new Animated.Value(0);
-            
-            const giftId = `gift-${Date.now()}-${giftIdCounter.current++}`;
-            
-            // Calcula a posição final baseada no ângulo e distância
-            const finalX = spawnX + Math.cos(angle) * distance;
-            const finalY = spawnY + Math.sin(angle) * distance - 100;
-            
-            // Anima o presente explodindo a partir do lado escolhido
-            Animated.parallel([
-                Animated.spring(scale, {
-                    toValue: 1.5,
-                    useNativeDriver: true,
-                    tension: 50,
-                    friction: 5,
-                }),
-                Animated.timing(x, {
-                    toValue: finalX,
-                    duration: 1500,
-                    useNativeDriver: false,
-                }),
-                Animated.timing(y, {
-                    toValue: finalY,
-                    duration: 1500,
-                    useNativeDriver: false,
-                }),
-                Animated.timing(opacity, {
-                    toValue: 0,
-                    duration: 1500,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(rotation, {
-                    toValue: Math.random() * 720 - 360,
-                    duration: 1500,
-                    useNativeDriver: true,
-                }),
-            ]).start(() => {
-                setActiveGifts((prev) => prev.filter((g) => g.id !== giftId));
-            });
-            
-            newGifts.push({
-                id: giftId,
-                emoji: gift.emoji,
-                x,
-                y,
-                scale,
-                opacity,
-                rotation,
-            });
-        }
-        
-        setActiveGifts((prev) => [...prev, ...newGifts]);
-        
         // Envia mensagem no chat sobre o presente
         const streamerName = side === 'A' ? streamerA.name : streamerB.name;
-        onSendMessage(`🎁 Enviou ${gift.emoji} ${gift.name} para ${streamerName}!`);
+        onSendMessage(`Enviou ${gift.name} para ${streamerName}!`);
     };
 
     useEffect(() => {
@@ -406,15 +301,9 @@ export const BattleItem = ({
             )}
 
             {/* Left Video */}
-            <View
-                style={styles.videoWrapper}
-                onLayout={(e) => {
-                    const { x, width: w } = e.nativeEvent.layout;
-                    setVideoACenter(x + w / 2);
-                }}
-            >
+            <View style={styles.videoWrapper}>
                 <View style={styles.videoContainer}>
-                    <View style={[styles.frameBorder, { borderColor: streamerA.color }]}>
+                    <View style={[styles.frameBorder, { borderColor: '#000000' }]}>
                         <View style={styles.frameInner}>
                             <Video
                                 ref={videoARef}
@@ -442,15 +331,9 @@ export const BattleItem = ({
             </View>
 
             {/* Right Video */}
-            <View
-                style={styles.videoWrapper}
-                onLayout={(e) => {
-                    const { x, width: w } = e.nativeEvent.layout;
-                    setVideoBCenter(x + w / 2);
-                }}
-            >
+            <View style={styles.videoWrapper}>
                 <View style={styles.videoContainer}>
-                    <View style={[styles.frameBorder, { borderColor: streamerB.color }]}>
+                    <View style={[styles.frameBorder, { borderColor: '#000000' }]}>
                         <View style={styles.frameInner}>
                             <Video
                                 ref={videoBRef}
@@ -525,10 +408,6 @@ export const BattleItem = ({
                 </View>
             </View>
 
-            {/* Divisor lines */}
-            <View style={styles.dividerLineLeft} />
-            <View style={styles.dividerLineRight} />
-
             {/* Chat Section */}
             <View style={styles.chatContainerWrapper}>
                 <Animated.View
@@ -542,17 +421,13 @@ export const BattleItem = ({
                 >
                     <LinearGradient
                         colors={
-                            chatHeight > MIN_CHAT_HEIGHT + 20
+                            isChatOpen
                                 ? ['rgba(0, 0, 0, 0.95)', 'rgba(10, 10, 26, 0.9)', 'rgba(26, 26, 46, 0.85)']
                                 : ['rgba(0, 0, 0, 0.4)', 'rgba(10, 10, 26, 0.3)', 'rgba(26, 26, 46, 0.2)']
                         }
                         style={styles.chatGradientBackground}
                     >
-                        <View style={styles.chatDragHandle} {...panResponder.panHandlers}>
-                            <View style={styles.chatDragIndicator} />
-                        </View>
-
-                        {chatHeight > MIN_CHAT_HEIGHT + 20 ? (
+                        {isChatOpen ? (
                             <View style={styles.chatContentWrapper}>
                                 <View style={styles.chatHeader}>
                                     <View style={styles.chatHeaderLeft}>
@@ -610,7 +485,7 @@ export const BattleItem = ({
                                                 colors={[streamerA.color, streamerB.color]}
                                                 style={styles.giftButtonGradient}
                                             >
-                                                <Text style={styles.giftButtonEmoji}>🎁</Text>
+                                                <Ionicons name="gift" size={20} color="#FFFFFF" />
                                             </LinearGradient>
                                         </TouchableOpacity>
                                         <TextInput
@@ -654,33 +529,6 @@ export const BattleItem = ({
                 </Animated.View>
             </View>
 
-            {/* Presentes animados na tela */}
-            {activeGifts.map((gift) => (
-                <Animated.View
-                    key={gift.id}
-                    style={[
-                        styles.giftAnimation,
-                        {
-                            left: gift.x,
-                            top: gift.y,
-                            transform: [
-                                { scale: gift.scale },
-                                {
-                                    rotate: gift.rotation.interpolate({
-                                        inputRange: [-360, 360],
-                                        outputRange: ['-360deg', '360deg'],
-                                    }),
-                                },
-                            ],
-                            opacity: gift.opacity,
-                        },
-                    ]}
-                    pointerEvents="none"
-                >
-                    <Text style={styles.giftEmoji}>{gift.emoji}</Text>
-                </Animated.View>
-            ))}
-
             {/* Modal de Presentes */}
             <Modal
                 visible={showGiftsModal}
@@ -690,110 +538,134 @@ export const BattleItem = ({
                 statusBarTranslucent={true}
             >
                 <View style={styles.giftsModalOverlay}>
-                    {!selectedGift && (
-                        <TouchableOpacity
-                            style={StyleSheet.absoluteFill}
-                            activeOpacity={1}
-                            onPress={() => {
+                    <TouchableOpacity
+                        style={StyleSheet.absoluteFill}
+                        activeOpacity={1}
+                        onPress={() => {
+                            if (!selectedGift) {
                                 setShowGiftsModal(false);
                                 setSelectedGift(null);
                                 setSelectedSide(null);
-                            }}
-                        />
-                    )}
-                    <View style={styles.giftsModalContent}>
-                        <View style={styles.giftsModalHeader}>
-                            <Text style={styles.giftsModalTitle}>
-                                {selectedGift ? 'Escolha para quem enviar' : 'Enviar Presente'}
-                            </Text>
-                            <TouchableOpacity
-                                onPress={() => {
-                                    setShowGiftsModal(false);
-                                    setSelectedGift(null);
-                                    setSelectedSide(null);
-                                }}
-                                style={styles.giftsModalClose}
-                            >
-                                <Ionicons name="close" size={24} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
-                        
-                        {!selectedGift ? (
-                            <ScrollView
-                                style={styles.giftsList}
-                                contentContainerStyle={styles.giftsListContent}
-                                showsVerticalScrollIndicator={false}
-                                keyboardShouldPersistTaps="handled"
-                            >
-                                {GIFTS.map((gift) => (
-                                    <TouchableOpacity
-                                        key={gift.id}
-                                        style={styles.giftItem}
-                                        onPress={() => handleSelectGift(gift)}
-                                        activeOpacity={0.7}
-                                    >
-                                        <View style={styles.giftItemEmojiContainer}>
-                                            <Text style={styles.giftItemEmoji}>{gift.emoji}</Text>
-                                        </View>
-                                        <View style={styles.giftItemInfo}>
-                                            <Text style={styles.giftItemName}>{gift.name}</Text>
-                                            <Text style={styles.giftItemPrice}>{gift.price} moedas</Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                        ) : (
-                            <View style={styles.sideSelectionContainer}>
-                                <Text style={styles.sideSelectionTitle}>
-                                    Enviar {selectedGift.emoji} {selectedGift.name} para:
+                            }
+                        }}
+                    />
+                    <TouchableOpacity 
+                        activeOpacity={1}
+                        onPress={(e) => e.stopPropagation()}
+                        style={styles.giftsModalContent}
+                    >
+                        <View style={styles.giftsModalInner}>
+                            <View style={styles.giftsModalHeader}>
+                                <Text style={styles.giftsModalTitle}>
+                                    {selectedGift ? 'Escolha para quem enviar' : 'Enviar Presente'}
                                 </Text>
-                                <View style={styles.sideSelectionButtons}>
-                                    <TouchableOpacity
-                                        style={[styles.sideSelectionButton, { borderColor: streamerA.color }]}
-                                        onPress={() => handleSelectSide('A')}
-                                        activeOpacity={0.7}
-                                    >
-                                        <LinearGradient
-                                            colors={[streamerA.color + '40', streamerA.color + '20']}
-                                            style={styles.sideSelectionGradient}
-                                        >
-                                            <Text style={styles.sideSelectionEmoji}>{selectedGift.emoji}</Text>
-                                            <Text style={[styles.sideSelectionName, { color: streamerA.color }]}>
-                                                {streamerA.name}
-                                            </Text>
-                                            <Text style={styles.sideSelectionHandle}>{streamerA.handle}</Text>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                    
-                                    <TouchableOpacity
-                                        style={[styles.sideSelectionButton, { borderColor: streamerB.color }]}
-                                        onPress={() => handleSelectSide('B')}
-                                        activeOpacity={0.7}
-                                    >
-                                        <LinearGradient
-                                            colors={[streamerB.color + '40', streamerB.color + '20']}
-                                            style={styles.sideSelectionGradient}
-                                        >
-                                            <Text style={styles.sideSelectionEmoji}>{selectedGift.emoji}</Text>
-                                            <Text style={[styles.sideSelectionName, { color: streamerB.color }]}>
-                                                {streamerB.name}
-                                            </Text>
-                                            <Text style={styles.sideSelectionHandle}>{streamerB.handle}</Text>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                </View>
                                 <TouchableOpacity
-                                    style={styles.backButton}
                                     onPress={() => {
+                                        setShowGiftsModal(false);
                                         setSelectedGift(null);
                                         setSelectedSide(null);
                                     }}
+                                    style={styles.giftsModalClose}
                                 >
-                                    <Text style={styles.backButtonText}>← Voltar</Text>
+                                    <Ionicons name="close" size={24} color="#fff" />
                                 </TouchableOpacity>
                             </View>
-                        )}
-                    </View>
+                            
+                            {!selectedGift ? (
+                        <ScrollView
+                            style={styles.giftsList}
+                            contentContainerStyle={styles.giftsListContent}
+                            showsVerticalScrollIndicator={false}
+                            keyboardShouldPersistTaps="handled"
+                        >
+                            {GIFTS.map((gift) => (
+                                <TouchableOpacity
+                                    key={gift.id}
+                                    style={styles.giftItem}
+                                    onPress={() => handleSelectGift(gift)}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={styles.giftItemEmojiContainer}>
+                                        {gift.imageUri && (
+                                            <Image 
+                                                source={gift.imageUri} 
+                                                style={styles.giftItemImage}
+                                                resizeMode="cover"
+                                            />
+                                        )}
+                                    </View>
+                                    <View style={styles.giftItemInfo}>
+                                        <Text style={styles.giftItemName}>{gift.name}</Text>
+                                        <Text style={styles.giftItemPrice}>{gift.price} moedas</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                            ) : (
+                                <View style={styles.sideSelectionContainer}>
+                                    <Text style={styles.sideSelectionTitle}>
+                                        Enviar {selectedGift.name} para:
+                                    </Text>
+                                    <View style={styles.sideSelectionButtons}>
+                                        <TouchableOpacity
+                                            style={[styles.sideSelectionButton, { borderColor: streamerA.color }]}
+                                            onPress={() => handleSelectSide('A')}
+                                            activeOpacity={0.7}
+                                        >
+                                            <LinearGradient
+                                                colors={[streamerA.color + '40', streamerA.color + '20']}
+                                                style={styles.sideSelectionGradient}
+                                            >
+                                                {selectedGift.imageUri && (
+                                                    <Image 
+                                                        source={selectedGift.imageUri} 
+                                                        style={styles.sideSelectionImage}
+                                                        resizeMode="cover"
+                                                    />
+                                                )}
+                                                <Text style={[styles.sideSelectionName, { color: streamerA.color }]}>
+                                                    {streamerA.name}
+                                                </Text>
+                                                <Text style={styles.sideSelectionHandle}>{streamerA.handle}</Text>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                        
+                                        <TouchableOpacity
+                                            style={[styles.sideSelectionButton, { borderColor: streamerB.color }]}
+                                            onPress={() => handleSelectSide('B')}
+                                            activeOpacity={0.7}
+                                        >
+                                            <LinearGradient
+                                                colors={[streamerB.color + '40', streamerB.color + '20']}
+                                                style={styles.sideSelectionGradient}
+                                            >
+                                                {selectedGift.imageUri && (
+                                                    <Image 
+                                                        source={selectedGift.imageUri} 
+                                                        style={styles.sideSelectionImage}
+                                                        resizeMode="cover"
+                                                    />
+                                                )}
+                                                <Text style={[styles.sideSelectionName, { color: streamerB.color }]}>
+                                                    {streamerB.name}
+                                                </Text>
+                                                <Text style={styles.sideSelectionHandle}>{streamerB.handle}</Text>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={styles.backButton}
+                                        onPress={() => {
+                                            setSelectedGift(null);
+                                            setSelectedSide(null);
+                                        }}
+                                    >
+                                        <Text style={styles.backButtonText}>← Voltar</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                        </View>
+                    </TouchableOpacity>
                 </View>
             </Modal>
         </View>
