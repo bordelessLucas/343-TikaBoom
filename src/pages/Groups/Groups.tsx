@@ -6,6 +6,7 @@ import { useNavigation } from '../../routes/NavigationContext';
 import { styles } from './Groups.styles';
 import { auth } from '../../lib/firebaseconfig';
 import { groupsService, Group } from '../../services/groupsService';
+import { KeyboardAvoid } from '../../components/KeyboardAvoid/KeyboardAvoid';
 
 type TabType = 'my' | 'discover';
 
@@ -115,6 +116,7 @@ export const Groups = () => {
             colors={['#28002b', '#1a1a2e', '#0a0a1a']}
             style={styles.container}
         >
+            <KeyboardAvoid scroll={false}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigate('Home')} style={styles.backButton}>
                     <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
@@ -150,7 +152,12 @@ export const Groups = () => {
 
             {/* Conteúdo */}
             {activeTab === 'my' ? (
-                <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+                <ScrollView
+                    style={styles.scroll}
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="on-drag"
+                >
                     {/* Criar grupo */}
                     <View style={styles.createCard}>
                         <Text style={styles.sectionTitle}>Criar novo grupo</Text>
@@ -206,6 +213,7 @@ export const Groups = () => {
                     </Text>
                 </ScrollView>
             )}
+            </KeyboardAvoid>
         </LinearGradient>
     );
 };

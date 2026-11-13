@@ -20,6 +20,7 @@ interface Comment {
 
 interface VideoItemProps {
     videoUri: string;
+    mediaType?: 'photo' | 'video';
     username: string;
     description: string;
     isActive: boolean;
@@ -36,7 +37,8 @@ interface VideoItemProps {
 const { width, height } = Dimensions.get('window');
 
 export const VideoItem = ({ 
-    videoUri, 
+    videoUri,
+    mediaType = 'video',
     username, 
     description, 
     isActive,
@@ -58,13 +60,15 @@ export const VideoItem = ({
     const [shareVisible, setShareVisible] = useState(false);
     const [hasViewed, setHasViewed] = useState(false);
     const [isLoadingState, setIsLoadingState] = useState(false);
+    const isPhoto = mediaType === 'photo';
 
-    const player = useVideoPlayer(videoUri, (p) => {
+    const player = useVideoPlayer(isPhoto ? null : videoUri, (p) => {
         p.loop = true;
         p.muted = false;
     });
 
     useEffect(() => {
+        if (isPhoto) return;
         if (isActive) {
             player.play();
 
@@ -117,7 +121,15 @@ export const VideoItem = ({
         } else {
             player.pause();
         }
-    }, [isActive, postId, hasViewed, isLoadingState, commentsVisible, player]);
+    }, [isActive, postId, hasViewed, isLoadingState, commentsVisible, player, isPhoto]);
+
+    useEffect(() => {
+        if (isPhoto && isActive && postId && !hasViewed) {
+            postsService.incrementViews(postId);
+            setHasViewed(true);
+            onView?.();
+        }
+    }, [isPhoto, isActive, postId, hasViewed, onView]);
 
     // Verificar se o usuário já curtiu/salvou e sincronizar estado
     useEffect(() => {
@@ -273,12 +285,16 @@ export const VideoItem = ({
 
     return (
         <View style={styles.container}>
-            <VideoView
-                player={player}
-                style={styles.video}
-                contentFit="cover"
-                nativeControls={false}
-            />
+            {isPhoto ? (
+                <Image source={{ uri: videoUri }} style={styles.video} resizeMode="cover" />
+            ) : (
+                <VideoView
+                    player={player}
+                    style={styles.video}
+                    contentFit="cover"
+                    nativeControls={false}
+                />
+            )}
             
             {/* Botões de interação na lateral direita */}
             <View style={styles.actionsContainer}>

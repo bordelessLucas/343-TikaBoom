@@ -110,8 +110,8 @@ export const GroupChat = () => {
 
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={80}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
             >
                 <ScrollView
                     style={styles.messagesList}
@@ -131,7 +131,7 @@ export const GroupChat = () => {
                                 {!isMine && (
                                     <Text style={styles.messageSender}>@{msg.senderUsername}</Text>
                                 )}
-                                <Text style={styles.messageText}>{msg.text}</Text>
+                                <Text style={isMine ? styles.messageTextMine : styles.messageText}>{msg.text}</Text>
                             </View>
                         );
                     })}
@@ -152,7 +152,7 @@ export const GroupChat = () => {
                         multiline
                     />
                     <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-                        <MaterialIcons name="send" size={22} color="#FFFFFF" />
+                        <MaterialIcons name="send" size={22} color="#111111" />
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>

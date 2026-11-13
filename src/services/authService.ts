@@ -125,9 +125,53 @@ export const authService = {
   // Login
   async login(email: string, password: string): Promise<UserCredential> {
     try {
-      return await signInWithEmailAndPassword(auth, email, password);
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      await credential.user.getIdToken(true);
+      await this.ensureUserProfile(credential.user.uid, email, credential.user.displayName);
+      return credential;
     } catch (error: any) {
-      throw new Error(error.message);
+      const code = error?.code || '';
+      if (
+        code === 'auth/invalid-credential' ||
+        code === 'auth/wrong-password' ||
+        code === 'auth/user-not-found' ||
+        code === 'auth/invalid-login-credentials'
+      ) {
+        throw new Error('Email ou senha incorretos.');
+      }
+      if (code === 'auth/too-many-requests') {
+        throw new Error('Muitas tentativas. Espere um pouco e tente de novo.');
+      }
+      if (code === 'auth/network-request-failed') {
+        throw new Error('Sem conexão com o Firebase.');
+      }
+      throw new Error(error.message || 'Erro ao fazer login.');
+    }
+  },
+
+  async ensureUserProfile(uid: string, email: string, displayName?: string | null): Promise<void> {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) return;
+
+      const name = displayName || email.split('@')[0];
+      const username = email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20) || 'user';
+      await setDoc(doc(db, 'users', uid), {
+        uid,
+        email,
+        displayName: name,
+        username,
+        followers: 0,
+        following: 0,
+        posts: 0,
+        likes: 0,
+        isPrivate: false,
+        createdAt: Date.now(),
+        followingList: [],
+        followersList: [],
+      });
+    } catch (error) {
+      console.warn('Perfil não gravado no Firestore. Libere as regras de users para o usuário autenticado.', error);
     }
   },
 
@@ -149,6 +193,9 @@ export const authService = {
       }
       return null;
     } catch (error: any) {
+      if (error?.code === 'permission-denied' || String(error?.message || '').includes('permission')) {
+        return null;
+      }
       throw new Error(error.message);
     }
   },

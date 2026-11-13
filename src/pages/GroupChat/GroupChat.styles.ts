@@ -45,7 +45,7 @@ export const styles = StyleSheet.create({
     },
     messageMine: {
         alignSelf: 'flex-end',
-        backgroundColor: '#A300A8',
+        backgroundColor: '#C0F93C',
     },
     messageOther: {
         alignSelf: 'flex-start',
@@ -58,6 +58,10 @@ export const styles = StyleSheet.create({
     },
     messageText: {
         color: '#FFFFFF',
+        fontSize: 14,
+    },
+    messageTextMine: {
+        color: '#111111',
         fontSize: 14,
     },
     emptyText: {
@@ -89,7 +93,7 @@ export const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#A300A8',
+        backgroundColor: '#C0F93C',
         justifyContent: 'center',
         alignItems: 'center',
     },

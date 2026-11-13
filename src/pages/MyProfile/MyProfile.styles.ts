@@ -53,7 +53,7 @@ export const styles = StyleSheet.create({
         paddingHorizontal: 10,
     },
     saveText: {
-        color: '#FFFFFF',
+        color: '#C0F93C',
         fontSize: 16,
         fontWeight: '600',
     },

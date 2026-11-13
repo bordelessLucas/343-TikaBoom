@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, Dimensions, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, Dimensions, Alert, Platform, KeyboardAvoidingView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { auth } from '../../lib/firebaseconfig';
@@ -119,6 +119,11 @@ export const Comments = ({ visible, onClose, comments: initialComments, videoId,
             onRequestClose={onClose}
         >
             <View style={styles.modalContainer}>
+                <KeyboardAvoidingView
+                    style={{ flex: 1, justifyContent: 'flex-end' }}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+                >
                 <LinearGradient
                     colors={['rgba(0,0,0,0.9)', 'rgba(0,0,0,0.95)']}
                     style={styles.modalContent}
@@ -130,7 +135,11 @@ export const Comments = ({ visible, onClose, comments: initialComments, videoId,
                         </TouchableOpacity>
                     </View>
 
-                    <ScrollView style={styles.commentsList}>
+                    <ScrollView
+                        style={styles.commentsList}
+                        keyboardShouldPersistTaps="handled"
+                        keyboardDismissMode="on-drag"
+                    >
                         {loading && (
                             <View style={styles.loadingContainer}>
                                 <Text style={styles.loadingText}>Carregando comentários...</Text>
@@ -179,13 +188,14 @@ export const Comments = ({ visible, onClose, comments: initialComments, videoId,
                                     <Ionicons 
                                         name="send" 
                                         size={20} 
-                                        color={newComment.trim() ? "#FF0050" : "rgba(255,255,255,0.3)"} 
+                                        color={newComment.trim() ? "#C0F93C" : "rgba(255,255,255,0.3)"} 
                                     />
                                 </TouchableOpacity>
                             </View>
                         </View>
                     </View>
                 </LinearGradient>
+                </KeyboardAvoidingView>
             </View>
         </Modal>
     );

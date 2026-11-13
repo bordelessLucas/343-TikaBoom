@@ -173,14 +173,14 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
   },
   addButton: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#C0F93C',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
     minWidth: 100,
   },
   addButtonText: {
-    color: '#0a0a1a',
+    color: '#111111',
     fontWeight: 'bold',
     fontSize: 13,
     textAlign: 'center',
@@ -206,14 +206,14 @@ export const styles = StyleSheet.create({
     gap: 12,
   },
   acceptButton: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#C0F93C',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 12,
     flexShrink: 0,
   },
   acceptButtonText: {
-    color: '#0a0a1a',
+    color: '#111111',
     fontWeight: 'bold',
     fontSize: 13,
   },

@@ -15,6 +15,10 @@ import {
 import { db } from '../lib/firebaseconfig';
 import { UserProfile } from './authService';
 
+function denied(error: any) {
+  return error?.code === 'permission-denied' || String(error?.message || '').toLowerCase().includes('permission');
+}
+
 export const usersService = {
   // Buscar usuários por username
   async searchUsers(searchTerm: string, limitCount: number = 20): Promise<UserProfile[]> {
@@ -30,6 +34,7 @@ export const usersService = {
       const snapshot = await getDocs(q);
       return snapshot.docs.map(doc => doc.data() as UserProfile);
     } catch (error: any) {
+      if (denied(error)) return [];
       throw new Error(error.message);
     }
   },
@@ -52,6 +57,7 @@ export const usersService = {
         )
         .slice(0, limitCount);
     } catch (error: any) {
+      if (denied(error)) return [];
       throw new Error(error.message);
     }
   },
@@ -199,6 +205,7 @@ export const usersService = {
       }
       return false;
     } catch (error: any) {
+      if (denied(error)) return false;
       throw new Error(error.message);
     }
   },
@@ -224,6 +231,7 @@ export const usersService = {
       }
       return [];
     } catch (error: any) {
+      if (denied(error)) return [];
       throw new Error(error.message);
     }
   },
@@ -249,6 +257,7 @@ export const usersService = {
       }
       return [];
     } catch (error: any) {
+      if (denied(error)) return [];
       throw new Error(error.message);
     }
   },
@@ -273,6 +282,7 @@ export const usersService = {
         .sort((a, b) => b.followers - a.followers)
         .slice(0, limitCount);
     } catch (error: any) {
+      if (denied(error)) return [];
       throw new Error(error.message);
     }
   },

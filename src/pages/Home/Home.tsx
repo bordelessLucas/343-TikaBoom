@@ -12,6 +12,7 @@ const { height } = Dimensions.get('window');
 interface FeedItem {
     id: string;
     videoUri: string;
+    mediaType: 'photo' | 'video';
     username: string;
     description: string;
     likes: number;
@@ -91,17 +92,18 @@ export const Home = () => {
             // Buscar APENAS posts do Firebase (sem mockados)
             const firebasePosts = await postsService.getFeedPosts(50);
             
-            // Converter posts do Firebase para formato do feed
+            // Converter posts do Firebase para formato do feed (vídeo e foto)
             const feedItems: FeedItem[] = firebasePosts
-                .filter(post => post.mediaType === 'video') // Apenas vídeos no feed
+                .filter(post => Boolean(post.mediaURL))
                 .map(post => ({
                     id: post.id,
-                    postId: post.id, // Sempre presente
+                    postId: post.id,
                     videoUri: post.mediaURL,
+                    mediaType: post.mediaType === 'photo' ? 'photo' : 'video',
                     username: post.authorUsername,
                     description: post.description || post.title,
                     likes: post.likes || 0,
-                    comments: [], // Será carregado quando necessário
+                    comments: [],
                     saves: post.saves || 0,
                     shares: post.shares || 0,
                     userProfileImage: post.authorPhotoURL,
@@ -144,6 +146,7 @@ export const Home = () => {
         return (
             <VideoItem
                 videoUri={item.videoUri}
+                mediaType={item.mediaType}
                 username={item.username}
                 description={item.description}
                 isActive={index === currentIndex}
@@ -151,7 +154,7 @@ export const Home = () => {
                 comments={item.comments}
                 saves={item.saves}
                 shares={item.shares}
-                postId={item.postId} // Sempre presente
+                postId={item.postId}
                 userProfileImage={item.userProfileImage}
                 creatorProfileImage={item.creatorProfileImage}
             />

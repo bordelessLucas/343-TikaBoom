@@ -474,8 +474,8 @@ export const BattleItem = ({
                                 </ScrollView>
 
                                 <KeyboardAvoidingView
-                                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                                    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+                                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                                    keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
                                 >
                                     <View style={styles.chatInputContainer}>
                                         <TouchableOpacity

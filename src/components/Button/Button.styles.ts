@@ -11,12 +11,12 @@ export const styles = StyleSheet.create({
         marginBottom: 8,
     },
     primaryButton: {
-        backgroundColor: 'rgb(111, 1, 117)',
+        backgroundColor: '#C0F93C',
     },
     secondaryButton: {
         backgroundColor: '#2d2d44',
         borderWidth: 1,
-        borderColor: 'rgb(111, 1, 117)',
+        borderColor: '#C0F93C',
     },
     disabledButton: {
         opacity: 0.5,
@@ -26,7 +26,7 @@ export const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     primaryButtonText: {
-        color: '#FFFFFF',
+        color: '#111111',
     },
     secondaryButtonText: {
         color: '#FFFFFF',

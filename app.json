@@ -7,14 +7,25 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "O TikaBoom precisa da câmera para gravar vídeos e tirar fotos.",
+        "NSMicrophoneUsageDescription": "O TikaBoom precisa do microfone para gravar o áudio dos vídeos.",
+        "NSPhotoLibraryUsageDescription": "O TikaBoom precisa acessar suas fotos para publicar no feed."
+      }
     },
     "android": {
       "package": "com.tikaboom.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -27,6 +38,20 @@
     "plugins": [
       "expo-font",
       "expo-video",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O TikaBoom precisa da câmera para gravar vídeos e tirar fotos.",
+          "microphonePermission": "O TikaBoom precisa do microfone para gravar o áudio dos vídeos.",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O TikaBoom precisa acessar suas fotos para publicar no feed."
+        }
+      ],
       [
         "expo-splash-screen",
         {

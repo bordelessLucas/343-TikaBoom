@@ -25,13 +25,13 @@ export const styles = StyleSheet.create({
         marginBottom: 30,
     },
     permissionButton: {
-        backgroundColor: '#FF0050',
+        backgroundColor: '#C0F93C',
         paddingHorizontal: 30,
         paddingVertical: 12,
         borderRadius: 8,
     },
     permissionButtonText: {
-        color: '#FFFFFF',
+        color: '#111111',
         fontSize: 16,
         fontWeight: 'bold',
     },
@@ -70,14 +70,14 @@ export const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.4)',
     },
     publishButton: {
-        backgroundColor: '#FF0050',
+        backgroundColor: '#C0F93C',
         paddingVertical: 10,
         borderRadius: 20,
         alignItems: 'center',
         marginBottom: 16,
     },
     publishButtonText: {
-        color: '#FFFFFF',
+        color: '#111111',
         fontSize: 14,
         fontWeight: '600',
     },
@@ -101,13 +101,13 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
     },
     recordButtonOuterActive: {
-        borderColor: '#FF0050',
+        borderColor: '#C0F93C',
     },
     recordButtonInner: {
         width: 46,
         height: 46,
         borderRadius: 23,
-        backgroundColor: '#FF0050',
+        backgroundColor: '#C0F93C',
     },
     recordButtonInnerActive: {
         borderRadius: 10,

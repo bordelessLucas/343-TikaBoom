@@ -3,15 +3,15 @@ import {StyleSheet} from 'react-native';
 export const styles = StyleSheet.create({
     container:{
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
         padding: 20,
     },
     logo: {
-        width: 400,
+        width: '100%',
+        maxWidth: 400,
         height: 100,
         resizeMode: 'contain',
         marginBottom: 40,
+        alignSelf: 'center',
     },
     input:{
         width: '100%',
@@ -33,7 +33,7 @@ export const styles = StyleSheet.create({
     registerButton:{
         width: "100%",
         height: 50,
-        backgroundColor: 'rgb(111, 1, 117)',
+        backgroundColor: '#C0F93C',
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
@@ -41,7 +41,7 @@ export const styles = StyleSheet.create({
         marginTop: 16,
     },
     registerButtonText:{
-        color: '#FFFFFF',
+        color: '#111111',
         fontSize: 16,
         fontWeight: 'bold',
     },

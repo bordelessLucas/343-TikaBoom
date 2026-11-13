@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Dimensions, FlatList, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Dimensions, FlatList, Image, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -312,7 +312,17 @@ export const MyProfile = () => {
             colors={['#28002b', '#1a1a2e', '#0a0a1a']}
             style={styles.container}
         >
-            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+            >
+            <ScrollView
+                style={styles.scrollView}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+            >
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => navigate('Home')} style={styles.backButton}>
@@ -562,6 +572,7 @@ export const MyProfile = () => {
                     )}
                 </View>
             </ScrollView>
+            </KeyboardAvoidingView>
         </LinearGradient>
     );
 };

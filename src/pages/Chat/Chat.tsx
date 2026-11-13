@@ -192,6 +192,7 @@ export const Chat = () => {
         >
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
                 style={styles.keyboardView}
             >
                 {/* Header */}
@@ -262,9 +263,9 @@ export const Chat = () => {
                         disabled={!newMessage.trim() || sending}
                     >
                         {sending ? (
-                            <ActivityIndicator size="small" color="#FFFFFF" />
+                            <ActivityIndicator size="small" color="#111111" />
                         ) : (
-                            <MaterialIcons name="send" size={24} color="#FFFFFF" />
+                            <MaterialIcons name="send" size={24} color="#111111" />
                         )}
                     </TouchableOpacity>
                 </View>

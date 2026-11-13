@@ -73,10 +73,10 @@ export const BottomNavigation = () => {
                                 <View style={styles.createButtonWrapper}>
                                     <View style={styles.createButtonContainer}>
                                         <LinearGradient
-                                            colors={['#FFFFFF', '#FFFFFF']}
+                                            colors={['#C0F93C', '#C0F93C']}
                                             style={styles.createButtonGradient}
                                         >
-                                            <MaterialIcons name="add" size={28} color="#000000" />
+                                            <MaterialIcons name="add" size={28} color="#111111" />
                                         </LinearGradient>
                                     </View>
                                 </View>

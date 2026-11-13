@@ -5,6 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from "../../routes/NavigationContext";
 import { authService } from '../../services/authService';
+import { KeyboardAvoid } from '../../components/KeyboardAvoid/KeyboardAvoid';
 import { styles } from '../Login/Login.styles';
 const logo = require('../../../assets/tikafundo.png');
 	
@@ -15,7 +16,7 @@ export const Login = () => {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [rememberMe, setRememberMe] = useState(false);
+    const [rememberMe, setRememberMe] = useState(true);
     const {navigate} = useNavigation();
 
     // Carregar credenciais salvas ao abrir a tela
@@ -93,60 +94,61 @@ export const Login = () => {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
         >
-            <Image source={logo} style={styles.logo} />
-            <TextInput
-                style={styles.input}
-                placeholder="Email"
-                placeholderTextColor="#999"
-                value={formData.email}
-                onChangeText={(text) => setFormData({...formData, email: text})}
-                keyboardType="email-address"
-                autoCapitalize="none"
-            />
-            <TextInput 
-                style={styles.input}
-                placeholder="Senha"
-                placeholderTextColor="#999"
-                value={formData.password}
-                onChangeText={(text) => setFormData({...formData, password: text})}
-                secureTextEntry={true}
-                autoCapitalize="none"
-            />
-            {error ? (
-                <Text style={styles.errorText}>{error}</Text>
-            ) : null}
-            
-            {/* Checkbox de Manter Login */}
-            <TouchableOpacity 
-                style={styles.rememberMeContainer}
-                onPress={() => setRememberMe(!rememberMe)}
-                activeOpacity={0.7}
-            >
-                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                    {rememberMe && (
-                        <MaterialIcons name="check" size={16} color="#FFFFFF" />
-                    )}
-                </View>
-                <Text style={styles.rememberMeText}>Manter login</Text>
-            </TouchableOpacity>
+            <KeyboardAvoid contentContainerStyle={{ justifyContent: 'center', paddingVertical: 24 }}>
+                <Image source={logo} style={styles.logo} />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Email"
+                    placeholderTextColor="#999"
+                    value={formData.email}
+                    onChangeText={(text) => setFormData({...formData, email: text})}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                />
+                <TextInput 
+                    style={styles.input}
+                    placeholder="Senha"
+                    placeholderTextColor="#999"
+                    value={formData.password}
+                    onChangeText={(text) => setFormData({...formData, password: text})}
+                    secureTextEntry={true}
+                    autoCapitalize="none"
+                />
+                {error ? (
+                    <Text style={styles.errorText}>{error}</Text>
+                ) : null}
+                
+                <TouchableOpacity 
+                    style={styles.rememberMeContainer}
+                    onPress={() => setRememberMe(!rememberMe)}
+                    activeOpacity={0.7}
+                >
+                    <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                        {rememberMe && (
+                            <MaterialIcons name="check" size={16} color="#FFFFFF" />
+                        )}
+                    </View>
+                    <Text style={styles.rememberMeText}>Manter login</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-                style={styles.loginButton}
-                onPress={handleLogin}
-                disabled={loading}
-            >
-                <Text style={styles.loginButtonText}>
-                    {loading ? 'Entrando...' : 'Entrar'}
-                </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-                style={styles.registerLink}
-                onPress={() => navigate("Register")}
-            >
-                <Text style={styles.registerLinkText}>
-                    Não tem uma conta? Cadastre-se
-                </Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.loginButton}
+                    onPress={handleLogin}
+                    disabled={loading}
+                >
+                    <Text style={styles.loginButtonText}>
+                        {loading ? 'Entrando...' : 'Entrar'}
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.registerLink}
+                    onPress={() => navigate("Register")}
+                >
+                    <Text style={styles.registerLinkText}>
+                        Não tem uma conta? Cadastre-se
+                    </Text>
+                </TouchableOpacity>
+            </KeyboardAvoid>
         </LinearGradient>
     );
 };

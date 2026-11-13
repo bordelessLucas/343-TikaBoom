@@ -82,13 +82,13 @@ export const styles = StyleSheet.create({
     },
     createButton: {
         marginTop: 4,
-        backgroundColor: '#A300A8',
+        backgroundColor: '#C0F93C',
         paddingVertical: 10,
         borderRadius: 8,
         alignItems: 'center',
     },
     createButtonText: {
-        color: '#FFFFFF',
+        color: '#111111',
         fontSize: 14,
         fontWeight: '600',
     },

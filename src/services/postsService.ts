@@ -91,39 +91,58 @@ export const postsService = {
     }
   },
 
+  /** Lê URI local (file://, content://, ph://) como Blob via XHR — mais estável no RN */
+  async _uriToBlob(uri: string): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(xhr.response);
+        } else {
+          reject(new Error(`Falha ao ler mídia (HTTP ${xhr.status})`));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Falha ao ler arquivo local'));
+      xhr.responseType = 'blob';
+      xhr.open('GET', uri, true);
+      xhr.send(null);
+    });
+  },
+
+  async _uriToBytes(uri: string): Promise<Uint8Array> {
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    return toByteArray(base64);
+  },
+
   // Upload de mídia
   async uploadMedia(uid: string, uri: string, type: 'photo' | 'video'): Promise<{ mediaURL: string; thumbnailURL?: string }> {
     try {
-      console.log('📤 Iniciando upload de mídia...', { uid, type, uri: uri.substring(0, 50) });
-      
-      // Verificar se o usuário está autenticado
+      console.log('📤 Iniciando upload de mídia...', { uid, type, uri: uri.substring(0, 80) });
+
       const { auth } = await import('../lib/firebaseconfig');
       if (!auth.currentUser) {
         throw new Error('Usuário não autenticado. Faça login para publicar.');
       }
-      
-      // Ler o arquivo usando expo-file-system (compatível com React Native)
-      console.log('📖 Lendo arquivo local...');
-      const fileInfo = await FileSystem.getInfoAsync(uri);
-      
-      if (!fileInfo.exists) {
-        throw new Error('Arquivo não encontrado');
+
+      let localUri = uri;
+      if (localUri && !localUri.startsWith('file://') && !localUri.startsWith('content://') && !localUri.startsWith('ph://') && !localUri.startsWith('http')) {
+        localUri = `file://${localUri}`;
       }
-      
-      // Criar referência no Storage
-      const fileExtension = type === 'video' ? 'mp4' : (uri.includes('.png') ? 'png' : 'jpg');
+
+      const fileInfo = await FileSystem.getInfoAsync(localUri).catch(() => null);
+      if (fileInfo && 'exists' in fileInfo && !fileInfo.exists) {
+        throw new Error('Arquivo não encontrado. Grave novamente.');
+      }
+      if (fileInfo && 'size' in fileInfo && typeof fileInfo.size === 'number' && fileInfo.size > 100 * 1024 * 1024) {
+        throw new Error('Arquivo muito grande. Tamanho máximo: 100MB');
+      }
+
+      const fileExtension = type === 'video' ? 'mp4' : (localUri.includes('.png') ? 'png' : 'jpg');
       const fileName = `${type}_${uid}_${Date.now()}.${fileExtension}`;
-      const storageRef = ref(storage, `posts/${fileName}`);
-      
-      console.log('📁 Fazendo upload para:', `posts/${fileName}`);
-      console.log('📁 Tamanho do arquivo:', fileInfo.size, 'bytes');
-      
-      // Verificar tamanho do arquivo (máximo 50MB)
-      if (fileInfo.size && fileInfo.size > 50 * 1024 * 1024) {
-        throw new Error('Arquivo muito grande. Tamanho máximo: 50MB');
-      }
-      
-      // Metadata
+      const storageRef = ref(storage, `posts/${uid}/${fileName}`);
+
       const metadata = {
         contentType: type === 'video' ? 'video/mp4' : (fileExtension === 'png' ? 'image/png' : 'image/jpeg'),
         customMetadata: {
@@ -131,105 +150,68 @@ export const postsService = {
           uploadedAt: Date.now().toString(),
         },
       };
-      
-      console.log('📋 Metadata:', metadata);
-      
-      // Ler o arquivo como base64 e converter para Uint8Array
-      console.log('📖 Lendo arquivo local como base64...');
-      let base64: string;
+
+      let body: Blob | Uint8Array;
       try {
-        base64 = await FileSystem.readAsStringAsync(uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        console.log('✅ Arquivo lido como base64, tamanho:', base64.length, 'caracteres');
-      } catch (readError: any) {
-        console.error('❌ Erro ao ler arquivo:', readError);
-        throw new Error(`Erro ao ler arquivo: ${readError.message}`);
+        body = await this._uriToBlob(localUri);
+        console.log('✅ Blob pronto:', (body as Blob).size, 'bytes');
+      } catch (blobErr) {
+        console.warn('⚠️ Blob falhou, usando base64...', blobErr);
+        body = await this._uriToBytes(localUri);
+        console.log('✅ Bytes prontos:', body.length);
       }
-      
-      // Converter base64 para Uint8Array usando base64-js (compatível com React Native)
-      console.log('🔄 Convertendo base64 para bytes...');
-      let bytes: Uint8Array;
-      try {
-        bytes = toByteArray(base64);
-        console.log('✅ Bytes convertidos:', bytes.length, 'bytes');
-      } catch (convertError: any) {
-        console.error('❌ Erro ao converter base64:', convertError);
-        throw new Error(`Erro ao converter arquivo: ${convertError.message}`);
-      }
-      
-      console.log('📤 Iniciando upload resumable...');
-      console.log('📤 Storage ref path:', storageRef.fullPath);
-      console.log('📤 Auth user:', auth.currentUser?.uid);
-      
-      // Usar uploadBytesResumable com timeout
-      const uploadTask = uploadBytesResumable(storageRef, bytes, metadata);
-      
-      // Criar Promise com timeout
-      const uploadPromise = new Promise<void>((resolve, reject) => {
+
+      const uploadTask = uploadBytesResumable(storageRef, body, metadata);
+
+      await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
           uploadTask.cancel();
-          reject(new Error('Upload timeout após 60 segundos'));
-        }, 60000); // 60 segundos timeout
-        
+          reject(new Error('Upload timeout após 120 segundos'));
+        }, 120000);
+
         uploadTask.on(
           'state_changed',
           (snapshot) => {
             const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
             console.log(`📊 Progresso: ${Math.round(progress)}%`);
-            
-            if (progress === 100) {
-              clearTimeout(timeout);
-            }
           },
           (error) => {
             clearTimeout(timeout);
-            console.error('❌ Erro no upload:', error);
             reject(error);
           },
           () => {
             clearTimeout(timeout);
-            console.log('✅ Upload concluído!');
             resolve();
           }
         );
       });
-      
-      await uploadPromise;
-      
+
       const downloadURL = await getDownloadURL(storageRef);
-      console.log('✅ URL obtida:', downloadURL.substring(0, 50) + '...');
-      
-      // Para vídeos, gerar thumbnail (simplificado - você pode melhorar isso)
-      let thumbnailURL: string | undefined;
-      if (type === 'video') {
-        // Thumbnail será a mesma URL por enquanto (você pode implementar geração de thumbnail)
-        thumbnailURL = downloadURL;
-      }
-      
+      const thumbnailURL = type === 'video' ? downloadURL : undefined;
       return { mediaURL: downloadURL, thumbnailURL };
     } catch (error: any) {
-      console.error('❌ Erro no upload:', error);
-      console.error('❌ Erro detalhado no upload:', JSON.stringify({
-        code: error.code,
-        message: error.message,
-        name: error.name,
-        stack: error.stack,
-      }));
-      
-      // Mensagens de erro mais específicas
+      console.error('❌ Erro no upload:', error?.code, error?.message);
+
       if (error.code === 'storage/unauthorized') {
-        throw new Error('Acesso negado. Verifique as regras de segurança do Firebase Storage.');
-      } else if (error.code === 'storage/canceled') {
+        throw new Error(
+          'Storage bloqueou o upload. Publique as regras em storage.rules no Firebase Console (Storage → Rules).'
+        );
+      }
+      if (error.code === 'storage/canceled') {
         throw new Error('Upload cancelado.');
-      } else if (error.code === 'storage/unknown') {
-        throw new Error('Erro desconhecido no Storage. Verifique:\n1. Regras de segurança do Firebase Storage\n2. Se o usuário está autenticado\n3. Conexão com internet\n4. Tamanho do arquivo (máx 50MB)');
-      } else if (error.message?.includes('auth')) {
+      }
+      if (error.code === 'storage/unknown' || error.code === 'storage/retry-limit-exceeded') {
+        throw new Error(
+          'Erro no Firebase Storage. Confirme que as regras estão publicadas e que você está logado.'
+        );
+      }
+      if (error.message?.includes('auth')) {
         throw new Error('Você precisa estar logado para publicar posts.');
-      } else if (error.message?.includes('não encontrado') || error.message?.includes('not found')) {
+      }
+      if (error.message?.includes('não encontrado') || error.message?.includes('not found')) {
         throw new Error('Arquivo não encontrado. Tente capturar novamente.');
       }
-      
+
       throw new Error(error.message || 'Erro ao fazer upload da mídia');
     }
   },
@@ -271,7 +253,21 @@ export const postsService = {
       const snapshot = await getDocs(q);
       return snapshot.docs.map(doc => doc.data() as Post);
     } catch (error: any) {
-      throw new Error(error.message);
+      // Fallback sem índice composto: ordena no cliente
+      try {
+        const fallback = query(
+          collection(db, 'posts'),
+          where('isPrivate', '==', false),
+          limit(limitCount)
+        );
+        const snapshot = await getDocs(fallback);
+        return snapshot.docs
+          .map(doc => doc.data() as Post)
+          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      } catch (fallbackError: any) {
+        console.warn('Feed indisponível:', fallbackError?.message || error?.message || error);
+        return [];
+      }
     }
   },
 

@@ -75,8 +75,8 @@ export const styles = StyleSheet.create({
         borderWidth: 1,
     },
     addButton: {
-        backgroundColor: 'rgba(76, 175, 80, 0.2)',
-        borderColor: 'rgba(76, 175, 80, 0.4)',
+        backgroundColor: 'rgba(192, 249, 60, 0.25)',
+        borderColor: '#C0F93C',
     },
     withdrawButton: {
         backgroundColor: 'rgba(255, 107, 107, 0.2)',

@@ -201,9 +201,6 @@ export const messagesService = {
       } catch (queryError: any) {
         // Se a query falhar por permissões, retornar array vazio
         if (queryError.code === 'permission-denied' || queryError.message?.includes('permission')) {
-          console.error('❌ Erro de permissão ao buscar chats. Configure as regras de segurança do Firestore:');
-          console.error('   - Permita leitura de chats onde o usuário está em participants');
-          console.error('   - Exemplo de regra: allow read: if request.auth != null && request.auth.uid in resource.data.participants;');
           return [];
         }
         // Se falhar por falta de índice, também retornar vazio (mais seguro que buscar todos)
@@ -300,14 +297,22 @@ export const messagesService = {
     const q = query(
       collection(db, 'chats'),
       where('participants', 'array-contains', userId),
-      orderBy('updatedAt', 'desc'),
       limit(50)
     );
     
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const chats = snapshot.docs.map(doc => doc.data() as Chat);
-      callback(chats);
-    });
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const chats = snapshot.docs
+          .map(doc => doc.data() as Chat)
+          .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        callback(chats);
+      },
+      (error) => {
+        console.warn('Chats indisponíveis:', error.message);
+        callback([]);
+      }
+    );
     
     return unsubscribe;
   },

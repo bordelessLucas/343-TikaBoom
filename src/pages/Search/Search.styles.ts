@@ -49,7 +49,7 @@ export const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.1)',
     },
     tabActive: {
-        backgroundColor: '#FF0050',
+        backgroundColor: '#C0F93C',
     },
     tabText: {
         color: 'rgba(255,255,255,0.7)',
@@ -57,7 +57,7 @@ export const styles = StyleSheet.create({
         fontWeight: '600',
     },
     tabTextActive: {
-        color: '#FFFFFF',
+        color: '#111111',
     },
     section: {
         marginTop: 24,

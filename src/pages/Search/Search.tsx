@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Image, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, Image, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '../../routes/NavigationContext';
@@ -165,6 +165,11 @@ export const Search = () => {
             colors={['#28002b', '#1a1a2e', '#0a0a1a']}
             style={styles.container}
         >
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+            >
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigate('Home')} style={styles.backButton}>
@@ -359,6 +364,7 @@ export const Search = () => {
                     </>
                 )}
             </ScrollView>
+            </KeyboardAvoidingView>
         </LinearGradient>
     );
 };

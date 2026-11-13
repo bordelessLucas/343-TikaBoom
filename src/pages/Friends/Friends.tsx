@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image, TextInput, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { styles } from './Friends.styles';
@@ -186,6 +186,11 @@ export const Friends = () => {
 
   return (
     <LinearGradient colors={['#28002b', '#1a1a2e', '#0a0a1a']} style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+      >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigate('Home')} style={styles.iconButton}>
           <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
@@ -203,6 +208,8 @@ export const Friends = () => {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         <View style={styles.searchBar}>
           <MaterialIcons name="search" size={20} color="rgba(255,255,255,0.5)" style={styles.searchIcon} />
@@ -268,6 +275,7 @@ export const Friends = () => {
           </View>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </LinearGradient>
   );
 };

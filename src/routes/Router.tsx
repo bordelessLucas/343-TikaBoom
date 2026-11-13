@@ -63,7 +63,8 @@ export const Router = () => {
     }
   };
 
-  const showBottomNav = ["Home", "Messages", "CreateVideo", "MyProfile", "Live", "Friends"].includes(currentScreen);
+  // Câmera em tela cheia: sem bottom nav (evita remount/fechamento no device)
+  const showBottomNav = ["Home", "Messages", "MyProfile", "Live", "Friends"].includes(currentScreen);
 
   return (
     <>
