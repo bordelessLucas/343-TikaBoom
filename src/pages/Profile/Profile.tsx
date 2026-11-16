@@ -38,38 +38,52 @@ export const Profile = () => {
                 return;
             }
 
-            // Buscar userId do AsyncStorage
+            await currentUser.getIdToken(true).catch(() => {});
+
             const viewingUserId = await AsyncStorage.getItem('viewingUserId');
             if (!viewingUserId) {
-                // Se não houver userId, redirecionar para Home
-                navigate('Home');
+                navigate('MyProfile');
                 return;
             }
 
-            // Verificar se é o próprio perfil
             if (viewingUserId === currentUser.uid) {
                 setIsCurrentUser(true);
                 navigate('MyProfile');
                 return;
             }
 
-            // Carregar perfil do usuário
-            const profile = await authService.getUserProfile(viewingUserId);
+            let profile: UserProfile | null = null;
+            try {
+                profile = await authService.getUserProfile(viewingUserId);
+            } catch (e) {
+                console.warn('Perfil remoto indisponível:', e);
+            }
+
             if (!profile) {
-                Alert.alert('Erro', 'Usuário não encontrado');
-                navigate('Home');
-                return;
+                profile = {
+                    uid: viewingUserId,
+                    email: '',
+                    displayName: 'Usuário',
+                    username: 'user',
+                    followers: 0,
+                    following: 0,
+                    posts: 0,
+                    likes: 0,
+                    isPrivate: false,
+                    createdAt: Date.now(),
+                    isVerified: false,
+                };
             }
 
             setProfileData(profile);
 
-            // Verificar se está seguindo
-            const following = await usersService.isFollowing(currentUser.uid, viewingUserId);
-            setIsFollowing(following);
+            usersService.isFollowing(currentUser.uid, viewingUserId)
+                .then(setIsFollowing)
+                .catch(() => setIsFollowing(false));
 
-            // Carregar posts do usuário
-            const posts = await postsService.getUserPosts(viewingUserId, false);
-            setUserPosts(posts);
+            postsService.getUserPosts(viewingUserId, false)
+                .then(setUserPosts)
+                .catch(() => setUserPosts([]));
         } catch (error) {
             console.error('Erro ao carregar perfil:', error);
             Alert.alert('Erro', 'Não foi possível carregar o perfil');
@@ -183,11 +197,24 @@ export const Profile = () => {
         );
     };
 
-    if (loading || !profileData) {
+    if (loading && !profileData) {
         return (
             <LinearGradient colors={['#28002b', '#1a1a2e', '#0a0a1a']} style={styles.container}>
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                     <ActivityIndicator size="large" color="#FFFFFF" />
+                </View>
+            </LinearGradient>
+        );
+    }
+
+    if (!profileData) {
+        return (
+            <LinearGradient colors={['#28002b', '#1a1a2e', '#0a0a1a']} style={styles.container}>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+                    <Text style={{ color: '#fff', marginBottom: 12 }}>Perfil indisponível</Text>
+                    <TouchableOpacity onPress={() => navigate('Home')}>
+                        <Text style={{ color: '#C0F93C', fontWeight: '700' }}>Voltar</Text>
+                    </TouchableOpacity>
                 </View>
             </LinearGradient>
         );

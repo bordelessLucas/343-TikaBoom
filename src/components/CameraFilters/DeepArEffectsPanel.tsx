@@ -14,7 +14,13 @@ export function DeepArEffectsPanel({ selectedId, onSelect, onClose }: Props) {
       <View style={styles.topRow}>
         <Text style={styles.title}>Efeitos DeepAR (grátis)</Text>
         {onClose && (
-          <TouchableOpacity onPress={onClose}>
+          <TouchableOpacity
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              onClose();
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
             <Text style={styles.close}>✕</Text>
           </TouchableOpacity>
         )}

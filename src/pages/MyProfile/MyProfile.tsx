@@ -43,6 +43,33 @@ export const MyProfile = () => {
         }
     }, [activeTab]);
 
+    const fallbackFromAuth = (user: NonNullable<typeof auth.currentUser>): UserProfile => {
+        const handle = user.email?.split('@')[0] || 'user';
+        return {
+            uid: user.uid,
+            email: user.email || '',
+            displayName: user.displayName || handle,
+            username: handle,
+            photoURL: user.photoURL || undefined,
+            bio: '',
+            followers: 0,
+            following: 0,
+            posts: 0,
+            likes: 0,
+            isPrivate: false,
+            createdAt: Date.now(),
+            isVerified: false,
+        };
+    };
+
+    const applyProfile = (profile: UserProfile) => {
+        setProfileData(profile);
+        setEditDisplayName(profile.displayName);
+        setEditUsername(profile.username);
+        setEditBio(profile.bio || '');
+        setIsPrivate(profile.isPrivate || false);
+    };
+
     const loadProfile = async () => {
         try {
             setLoading(true);
@@ -52,19 +79,22 @@ export const MyProfile = () => {
                 return;
             }
 
-            const profile = await authService.getUserProfile(user.uid);
-            if (profile) {
-                setProfileData(profile);
-                setEditDisplayName(profile.displayName);
-                setEditUsername(profile.username);
-                setEditBio(profile.bio || '');
-                setIsPrivate(profile.isPrivate || false);
+            await user.getIdToken(true).catch(() => {});
 
-                // Carregar posts do usuário
-                await loadUserPosts();
+            let profile: UserProfile | null = null;
+            try {
+                profile = await authService.getUserProfile(user.uid);
+            } catch (e) {
+                console.warn('getUserProfile falhou, usando Auth:', e);
             }
+
+            applyProfile(profile || fallbackFromAuth(user));
+            // Posts em paralelo — não trava a abertura do perfil
+            loadUserPosts();
         } catch (error) {
             console.error('Erro ao carregar perfil:', error);
+            const user = auth.currentUser;
+            if (user) applyProfile(fallbackFromAuth(user));
         } finally {
             setLoading(false);
         }
@@ -74,11 +104,15 @@ export const MyProfile = () => {
         try {
             setLoadingPosts(true);
             const user = auth.currentUser;
-            if (!user) return;
+            if (!user) {
+                setUserPosts([]);
+                return;
+            }
             const posts = await postsService.getUserPosts(user.uid, true);
             setUserPosts(posts);
-        } catch (error) {
-            console.error('Erro ao carregar posts:', error);
+        } catch (error: any) {
+            console.warn('Posts do perfil indisponíveis:', error?.message || error);
+            setUserPosts([]);
         } finally {
             setLoadingPosts(false);
         }
@@ -95,8 +129,7 @@ export const MyProfile = () => {
             const posts = await postsService.getLikedPosts(user.uid);
             setLikedPosts(posts);
         } catch (error: any) {
-            console.error('Erro ao carregar posts curtidos:', error);
-            // Em caso de erro, definir array vazio para não quebrar a UI
+            console.warn('Posts curtidos indisponíveis:', error?.message || error);
             setLikedPosts([]);
         } finally {
             setLoadingPosts(false);
@@ -114,8 +147,7 @@ export const MyProfile = () => {
             const posts = await postsService.getSavedPosts(user.uid);
             setSavedPosts(posts);
         } catch (error: any) {
-            console.error('Erro ao carregar posts salvos:', error);
-            // Em caso de erro, definir array vazio para não quebrar a UI
+            console.warn('Posts salvos indisponíveis:', error?.message || error);
             setSavedPosts([]);
         } finally {
             setLoadingPosts(false);
@@ -297,11 +329,30 @@ export const MyProfile = () => {
         }
     };
 
-    if (loading || !profileData) {
+    if (loading && !profileData) {
         return (
             <LinearGradient colors={['#28002b', '#1a1a2e', '#0a0a1a']} style={styles.container}>
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{ color: '#FFFFFF' }}>Carregando...</Text>
+                    <ActivityIndicator size="large" color="#C0F93C" />
+                    <Text style={{ color: '#FFFFFF', marginTop: 12 }}>Carregando...</Text>
+                </View>
+            </LinearGradient>
+        );
+    }
+
+    if (!profileData) {
+        return (
+            <LinearGradient colors={['#28002b', '#1a1a2e', '#0a0a1a']} style={styles.container}>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+                    <Text style={{ color: '#FFFFFF', textAlign: 'center', marginBottom: 16 }}>
+                        Não foi possível abrir o perfil.
+                    </Text>
+                    <TouchableOpacity
+                        onPress={loadProfile}
+                        style={{ backgroundColor: '#C0F93C', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 }}
+                    >
+                        <Text style={{ color: '#111', fontWeight: '800' }}>Tentar de novo</Text>
+                    </TouchableOpacity>
                 </View>
             </LinearGradient>
         );

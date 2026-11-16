@@ -278,16 +278,30 @@ export const postsService = {
         where('authorId', '==', userId),
         orderBy('createdAt', 'desc'),
       ];
-      
+
       if (!includePrivate) {
         constraints.splice(1, 0, where('isPrivate', '==', false));
       }
-      
+
       const q = query(collection(db, 'posts'), ...constraints);
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => doc.data() as Post);
+      return snapshot.docs.map((d) => d.data() as Post);
     } catch (error: any) {
-      throw new Error(error.message);
+      // Índice ausente ou regras bloqueando → tenta sem orderBy, senão lista vazia
+      try {
+        const constraints: QueryConstraint[] = [where('authorId', '==', userId)];
+        if (!includePrivate) constraints.push(where('isPrivate', '==', false));
+        const snapshot = await getDocs(query(collection(db, 'posts'), ...constraints));
+        return snapshot.docs
+          .map((d) => d.data() as Post)
+          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      } catch (fallbackError: any) {
+        console.warn(
+          'getUserPosts indisponível:',
+          fallbackError?.code || fallbackError?.message || error?.message
+        );
+        return [];
+      }
     }
   },
 
@@ -694,8 +708,8 @@ export const postsService = {
         return likedPosts;
       }
     } catch (error: any) {
-      console.error('Erro ao buscar posts curtidos:', error);
-      throw new Error(error.message || 'Erro ao buscar posts curtidos');
+      console.warn('getLikedPosts indisponível:', error?.message || error);
+      return [];
     }
   },
 
@@ -753,8 +767,8 @@ export const postsService = {
         return savedPosts;
       }
     } catch (error: any) {
-      console.error('Erro ao buscar posts salvos:', error);
-      throw new Error(error.message || 'Erro ao buscar posts salvos');
+      console.warn('getSavedPosts indisponível:', error?.message || error);
+      return [];
     }
   },
 };

@@ -16,6 +16,7 @@ import { StoriesCreate } from "../pages/StoriesCreate/StoriesCreate";
 import { StoriesViewer } from "../pages/StoriesViewer/StoriesViewer";
 import { Groups } from "../pages/Groups/Groups";
 import { GroupChat } from "../pages/GroupChat/GroupChat";
+import { LiveWatch } from "../pages/LiveWatch/LiveWatch";
 import { useNavigation } from "./NavigationContext";
 import { BottomNavigation } from "../components/BottomNavigation/BottomNavigation";
 
@@ -58,12 +59,14 @@ export const Router = () => {
         return <Groups />;
       case "GroupChat":
         return <GroupChat />;
+      case "LiveWatch":
+        return <LiveWatch />;
       default:
         return <Login />;
     }
   };
 
-  // Câmera em tela cheia: sem bottom nav (evita remount/fechamento no device)
+  // Câmera / watch em tela cheia: sem bottom nav
   const showBottomNav = ["Home", "Messages", "MyProfile", "Live", "Friends"].includes(currentScreen);
 
   return (

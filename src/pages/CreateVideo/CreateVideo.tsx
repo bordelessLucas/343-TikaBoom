@@ -39,6 +39,14 @@ import {
     mapFaceEffectToDeepAr,
     DeepArEffectId,
 } from '../../services/deepArEffects';
+import { livesService } from '../../services/livesService';
+import {
+    isDailyConfigured,
+    createDailyRoom,
+    deleteDailyRoom,
+    buildDailyEmbedUrl,
+} from '../../services/dailyService';
+import { LiveRoomWebView } from '../../components/LiveRoom/LiveRoomWebView';
 import { styles } from './CreateVideo.styles';
 
 /** Preview de foto ou vídeo (local) */
@@ -165,6 +173,10 @@ export const CreateVideo = () => {
     const [liveSource, setLiveSource] = useState<'camera' | 'game'>('camera');
     const [favoriteLive, setFavoriteLive] = useState(false);
     const [showCreateFilters, setShowCreateFilters] = useState(false);
+    const [activeLiveId, setActiveLiveId] = useState<string | null>(null);
+    const [liveRoomUrl, setLiveRoomUrl] = useState<string | null>(null);
+    const [liveStarting, setLiveStarting] = useState(false);
+    const [deepArRemountKey, setDeepArRemountKey] = useState(0);
     const liveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
     
@@ -227,19 +239,120 @@ export const CreateVideo = () => {
         setLivePanel((prev) => (prev === panel ? null : panel));
     };
 
-    const toggleLiveStream = () => {
+    const toggleLiveStream = async () => {
         if (isLiveOn) {
+            try {
+                if (activeLiveId && !activeLiveId.startsWith('daily_')) {
+                    await livesService.endLive(activeLiveId).catch(() => {});
+                }
+                if (liveRoomUrl) {
+                    const roomName = liveRoomUrl.split('/').pop()?.split('?')[0];
+                    if (roomName) deleteDailyRoom(roomName).catch(() => {});
+                }
+                await AsyncStorage.removeItem('@tikaboom_active_daily_room');
+            } catch (e: any) {
+                console.warn('Erro ao encerrar LIVE:', e?.message || e);
+            }
             setIsLiveOn(false);
-            Alert.alert('LIVE', 'Transmissão encerrada.');
+            setActiveLiveId(null);
+            setLiveRoomUrl(null);
+            // Volta os efeitos AR (DeepAR) após sair da sala Daily
+            setDeepArFailed(false);
+            setDeepArRemountKey((k) => k + 1);
+            Alert.alert('LIVE', 'Transmissão encerrada. Efeitos AR de volta.');
             return;
         }
+
+        const user = auth.currentUser;
+        if (!user) {
+            Alert.alert('Login', 'Faça login para iniciar uma LIVE.');
+            navigate('Login');
+            return;
+        }
+
         if (liveSource === 'game') {
             Alert.alert('Jogo', 'Espelhamento de jogo em breve. Use a câmera do dispositivo por enquanto.');
             setLiveSource('camera');
         }
-        setFacing('front');
-        setIsLiveOn(true);
-        setLivePanel('effects');
+
+        try {
+            setLiveStarting(true);
+            await user.getIdToken(true).catch(() => {});
+
+            // Encerra lives antigas do mesmo host (ignora erro de regras)
+            await livesService.endActiveLivesForHost(user.uid).catch(() => {});
+
+            let profile = null;
+            try {
+                profile = await authService.getUserProfile(user.uid);
+            } catch {
+                profile = null;
+            }
+
+            const hostUsername =
+                profile?.username ||
+                user.email?.split('@')[0] ||
+                'user';
+            const hostDisplayName = profile?.displayName || user.displayName || hostUsername;
+            const title = (liveTitle || '').trim() || `LIVE de ${hostDisplayName}`;
+            const roomName = `tb_${user.uid.slice(0, 8)}_${Date.now().toString(36)}`;
+
+            let roomUrl: string | undefined;
+            let provider: 'daily' | 'local' = 'local';
+
+            if (!isDailyConfigured()) {
+                throw new Error(
+                    'Configure EXPO_PUBLIC_DAILY_API_KEY no .env para transmitir LIVE real.'
+                );
+            }
+
+            const room = await createDailyRoom(roomName);
+            roomUrl = room.url;
+            provider = 'daily';
+
+            let sessionId = `daily_${roomName}`;
+            try {
+                const session = await livesService.createLive({
+                    title,
+                    hostUsername,
+                    hostDisplayName,
+                    hostPhotoURL: profile?.photoURL,
+                    roomName,
+                    roomUrl,
+                    provider,
+                });
+                sessionId = session.id;
+            } catch (fsErr: any) {
+                // Firestore bloqueado → segue só com Daily (lista via API Daily)
+                console.warn(
+                    'Firestore indisponível p/ LIVE, usando só Daily:',
+                    fsErr?.code || fsErr?.message
+                );
+                await AsyncStorage.setItem(
+                    '@tikaboom_active_daily_room',
+                    JSON.stringify({
+                        id: sessionId,
+                        roomName,
+                        roomUrl,
+                        title,
+                        hostUsername,
+                        hostDisplayName,
+                        startedAt: Date.now(),
+                    })
+                );
+            }
+
+            setActiveLiveId(sessionId);
+            setLiveRoomUrl(buildDailyEmbedUrl(roomUrl, hostDisplayName, true));
+            setFacing('front');
+            setIsLiveOn(true);
+            setLivePanel(null);
+        } catch (e: any) {
+            console.error('Erro ao iniciar LIVE:', e);
+            Alert.alert('Erro', e?.message || 'Não foi possível iniciar a LIVE');
+        } finally {
+            setLiveStarting(false);
+        }
     };
 
     // Função para parar gravação
@@ -711,13 +824,19 @@ export const CreateVideo = () => {
             <View style={styles.liveContainer}>
                 <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-                {useDeepAr ? (
+                {/* Com Daily ativo + LIVE ligada → stream real via WebView */}
+                {isLiveOn && liveRoomUrl ? (
+                    <LiveRoomWebView roomUrl={liveRoomUrl} style={StyleSheet.absoluteFillObject} />
+                ) : useDeepAr ? (
                     <DeepARCamera
-                        key={`deepar-${facing}`}
+                        key={`deepar-${facing}-${deepArRemountKey}`}
                         style={StyleSheet.absoluteFillObject}
                         effectId={deepArEffectId}
                         facing={facing === 'back' ? 'back' : 'front'}
-                        onReady={() => setCameraReady(true)}
+                        onReady={() => {
+                            setCameraReady(true);
+                            setDeepArFailed(false);
+                        }}
                         onError={(msg) => {
                             console.warn('DeepAR falhou, usando câmera local:', msg);
                             setDeepArFailed(true);
@@ -736,7 +855,6 @@ export const CreateVideo = () => {
                             ref={cameraRef}
                             onCameraReady={() => setCameraReady(true)}
                         />
-                        {/* Só aplica overlay se o usuário escolheu algo (sem “olho gigante” automático) */}
                         {(filterId !== 'normal' || beautyOn || faceEffect !== 'none') && (
                             <FilterOverlay
                                 filterId={filterId}
@@ -754,10 +872,16 @@ export const CreateVideo = () => {
                     <View style={[styles.liveTopBar, { paddingTop: liveTop }]} pointerEvents="box-none">
                         <TouchableOpacity
                             onPress={() => {
+                                // Se um painel está aberto, o X só fecha o painel (não sai da LIVE)
+                                if (livePanel) {
+                                    setLivePanel(null);
+                                    return;
+                                }
                                 setIsLiveOn(false);
                                 navigate('Home');
                             }}
                             style={styles.liveCloseButton}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
                             <Ionicons name="close" size={28} color="#FFFFFF" />
                         </TouchableOpacity>
@@ -807,6 +931,7 @@ export const CreateVideo = () => {
                                     setFilterId(id);
                                     if (id === 'softglow' || id === 'peach') setBeautyOn(true);
                                 }}
+                                onClose={() => setLivePanel(null)}
                             />
                         )}
                         {livePanel === 'beauty' && (
@@ -816,11 +941,17 @@ export const CreateVideo = () => {
                                     setBeautyConfig(next);
                                     setBeautyOn(true);
                                 }}
+                                onClose={() => setLivePanel(null)}
                             />
                         )}
                         {livePanel === 'settings' && (
                             <View style={styles.liveSettingsPanel}>
-                                <Text style={styles.liveSettingsTitle}>Configurações</Text>
+                                <View style={styles.liveSettingsHeader}>
+                                    <Text style={styles.liveSettingsTitle}>Configurações</Text>
+                                    <TouchableOpacity onPress={() => setLivePanel(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                                        <Text style={styles.livePanelClose}>✕</Text>
+                                    </TouchableOpacity>
+                                </View>
                                 <TextInput
                                     style={styles.liveSettingsInput}
                                     value={liveTitle}
@@ -863,7 +994,22 @@ export const CreateVideo = () => {
                                 <MaterialIcons name="auto-fix-high" size={22} color={livePanel === 'beauty' ? '#C0F93C' : '#FFF'} />
                                 <Text style={styles.liveBottomToolText}>Beleza</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.liveBottomTool} onPress={() => toggleLivePanel('effects')}>
+                            <TouchableOpacity
+                                style={styles.liveBottomTool}
+                                onPress={() => {
+                                    if (isLiveOn && liveRoomUrl) {
+                                        Alert.alert(
+                                            'Efeitos AR',
+                                            'Durante a LIVE (Daily) a câmera é da sala de transmissão.\n\nEncerrar a LIVE para voltar aos efeitos DeepAR.'
+                                        );
+                                        return;
+                                    }
+                                    // Garante DeepAR de novo se tinha caído
+                                    setDeepArFailed(false);
+                                    setDeepArRemountKey((k) => k + 1);
+                                    toggleLivePanel('effects');
+                                }}
+                            >
                                 <MaterialIcons name="auto-awesome" size={22} color={livePanel === 'effects' ? '#C0F93C' : '#FFF'} />
                                 <Text style={styles.liveBottomToolText}>Efeitos</Text>
                             </TouchableOpacity>
@@ -880,9 +1026,14 @@ export const CreateVideo = () => {
                         <TouchableOpacity
                             style={[styles.liveStartButton, isLiveOn && styles.liveStopButton]}
                             onPress={toggleLiveStream}
+                            disabled={liveStarting}
                         >
                             <Text style={[styles.liveStartButtonText, isLiveOn && styles.liveStopButtonText]}>
-                                {isLiveOn ? 'Encerrar LIVE' : 'Iniciar LIVE'}
+                                {liveStarting
+                                    ? 'Conectando…'
+                                    : isLiveOn
+                                      ? 'Encerrar LIVE'
+                                      : 'Iniciar LIVE'}
                             </Text>
                         </TouchableOpacity>
 
@@ -1139,7 +1290,14 @@ export const CreateVideo = () => {
                             </Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.bottomMenuItem} onPress={() => setCreateMode('live')}>
+                        <TouchableOpacity
+                            style={styles.bottomMenuItem}
+                            onPress={() => {
+                                setDeepArFailed(false);
+                                setDeepArRemountKey((k) => k + 1);
+                                setCreateMode('live');
+                            }}
+                        >
                             <Text style={styles.bottomMenuText}>LIVE</Text>
                         </TouchableOpacity>
                     </View>

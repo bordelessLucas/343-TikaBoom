@@ -30,7 +30,8 @@ export type ScreenName =
   | "StoriesCreate"
   | "StoriesViewer"
   | "Groups"
-  | "GroupChat";
+  | "GroupChat"
+  | "LiveWatch";
 
 interface NavigationContextType {
   currentScreen: ScreenName;

@@ -15,10 +15,23 @@ const TOGGLES: { key: keyof Omit<BeautyConfig, 'intensity'>; label: string }[] =
   { key: 'softFace', label: 'Glow' },
 ];
 
-export function BeautyPanel({ beauty, onChange }: Props) {
+export function BeautyPanel({ beauty, onChange, onClose }: Props) {
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>Embelezamento</Text>
+      <View style={styles.topRow}>
+        <Text style={styles.title}>Embelezamento</Text>
+        {onClose && (
+          <TouchableOpacity
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              onClose();
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.close}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
       <View style={styles.row}>
         {TOGGLES.map((t) => {
           const on = beauty[t.key];
@@ -60,11 +73,22 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
   },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   title: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
-    marginBottom: 10,
+  },
+  close: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+    paddingHorizontal: 4,
   },
   sub: {
     color: 'rgba(255,255,255,0.55)',

@@ -5,12 +5,26 @@ import { CAMERA_FILTERS } from '../../lib/cameraFilters';
 type Props = {
   selectedId: string;
   onSelect: (id: string) => void;
+  onClose?: () => void;
 };
 
-export function FilterPicker({ selectedId, onSelect }: Props) {
+export function FilterPicker({ selectedId, onSelect, onClose }: Props) {
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>Filtros</Text>
+      <View style={styles.topRow}>
+        <Text style={styles.title}>Filtros</Text>
+        {onClose && (
+          <TouchableOpacity
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              onClose();
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.close}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         {CAMERA_FILTERS.map((f) => {
           const active = f.id === selectedId;
@@ -49,12 +63,23 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
   },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
   title: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
-    marginLeft: 16,
-    marginBottom: 10,
+  },
+  close: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+    paddingHorizontal: 4,
   },
   row: {
     paddingHorizontal: 12,

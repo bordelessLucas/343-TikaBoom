@@ -635,11 +635,22 @@ export const styles = StyleSheet.create({
         padding: 14,
         marginBottom: 6,
     },
+    liveSettingsHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
     liveSettingsTitle: {
         color: '#FFFFFF',
         fontWeight: '700',
         fontSize: 13,
-        marginBottom: 10,
+    },
+    livePanelClose: {
+        color: '#FFFFFF',
+        fontSize: 18,
+        fontWeight: '600',
+        paddingHorizontal: 4,
     },
     liveSettingsRow: {
         flexDirection: 'row',
