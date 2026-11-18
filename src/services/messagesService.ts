@@ -1,337 +1,264 @@
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy, 
-  limit,
-  updateDoc,
-  Timestamp,
-  onSnapshot,
-  serverTimestamp
-} from 'firebase/firestore';
-import { db } from '../lib/firebaseconfig';
+import { supabase } from '../lib/supabase';
+import { mapMessage, toMillis } from '../lib/mappers';
+import type { Message, Chat } from '../types/models';
 
-export interface Message {
-  id: string;
-  chatId: string;
-  senderId: string;
-  senderUsername: string;
-  senderPhotoURL?: string;
-  text: string;
-  createdAt: number;
-  read: boolean;
-}
-
-export interface Chat {
-  id: string;
-  participants: string[]; // Array de UIDs
-  lastMessage?: string;
-  lastMessageTime?: number;
-  unreadCount: { [userId: string]: number };
-  createdAt: number;
-  updatedAt: number;
-}
+export type { Message, Chat };
 
 export const messagesService = {
-  // Criar ou obter chat entre dois usuários
   async getOrCreateChat(userId1: string, userId2: string): Promise<string> {
     try {
-      console.log('🔍 Criando/obtendo chat entre:', { userId1, userId2 });
-      
-      // Criar ID determinístico baseado nos dois user IDs (sempre o mesmo para os mesmos dois usuários)
-      // Ordenar os IDs para garantir consistência
       const sortedIds = [userId1, userId2].sort();
       const chatId = `${sortedIds[0]}_${sortedIds[1]}`;
-      
-      const chatRef = doc(db, 'chats', chatId);
-      
-      // Verificar se o chat já existe
-      const chatDoc = await getDoc(chatRef);
-      
-      if (chatDoc.exists()) {
-        const existingChat = chatDoc.data() as Chat;
-        // Garantir que participants existe e é um array
-        if (!existingChat.participants || !Array.isArray(existingChat.participants)) {
-          console.warn('⚠️ Chat existente com participants inválido, corrigindo...');
-          await updateDoc(chatRef, {
-            participants: [userId1, userId2],
-            unreadCount: existingChat.unreadCount || {
-              [userId1]: 0,
-              [userId2]: 0,
-            },
-          });
-        }
-        console.log('✅ Chat existente encontrado:', chatId);
-        return chatId;
+
+      const { data: existing } = await supabase
+        .from('chats')
+        .select('id')
+        .eq('id', chatId)
+        .maybeSingle();
+
+      if (existing) return chatId;
+
+      const { error: chatErr } = await supabase.from('chats').insert({ id: chatId });
+      if (chatErr && !String(chatErr.message).includes('duplicate')) {
+        throw chatErr;
       }
-      
-      // Criar novo chat
-      console.log('📝 Criando novo chat com ID:', chatId);
-      const chat: Chat = {
-        id: chatId,
-        participants: [userId1, userId2], // Sempre um array
-        unreadCount: {
-          [userId1]: 0,
-          [userId2]: 0,
-        },
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      
-      await setDoc(chatRef, chat);
-      console.log('✅ Chat criado com sucesso:', chatId);
+
+      const { error: partErr } = await supabase.from('chat_participants').upsert(
+        [
+          { chat_id: chatId, user_id: userId1, unread_count: 0 },
+          { chat_id: chatId, user_id: userId2, unread_count: 0 },
+        ],
+        { onConflict: 'chat_id,user_id' }
+      );
+      if (partErr) throw partErr;
+
       return chatId;
     } catch (error: any) {
-      console.error('❌ Erro ao criar/obter chat:', error);
-      console.error('   Código:', error.code);
-      console.error('   Mensagem:', error.message);
-      
-      // Mensagem de erro mais descritiva
-      if (error.code === 'permission-denied') {
-        const errorMsg = 
-          'Permissão negada ao criar chat.\n\n' +
-          'Verifique as regras de segurança do Firestore para a coleção "chats".\n\n' +
-          'A regra de criação deve ser:\n' +
-          'allow create: if request.auth != null && ' +
-          'request.auth.uid in request.resource.data.participants && ' +
-          'request.resource.data.participants.size() == 2;';
-        throw new Error(errorMsg);
-      }
       throw new Error(error.message || 'Não foi possível criar ou obter o chat');
     }
   },
 
-  // Enviar mensagem
-  async sendMessage(chatId: string, senderId: string, text: string, senderUsername: string, senderPhotoURL?: string): Promise<string> {
-    try {
-      const messageRef = doc(collection(db, 'messages'));
-      
-      // Criar objeto de mensagem, omitindo campos undefined (Firestore não aceita undefined)
-      const messageData: Omit<Message, 'senderPhotoURL'> & { senderPhotoURL?: string } = {
-        id: messageRef.id,
-        chatId,
-        senderId,
-        senderUsername,
-        text: text.trim(),
-        createdAt: Date.now(),
-        read: false,
-      };
-      
-      // Adicionar senderPhotoURL apenas se estiver definido e não for vazio
-      if (senderPhotoURL && senderPhotoURL.trim() !== '') {
-        messageData.senderPhotoURL = senderPhotoURL;
-      }
-      
-      await setDoc(messageRef, messageData);
-      
-      // Atualizar chat com última mensagem
-      const chatRef = doc(db, 'chats', chatId);
-      const chatDoc = await getDoc(chatRef);
-      if (chatDoc.exists()) {
-        const chat = chatDoc.data() as Chat;
-        // Verificar se participants existe e é um array
-        if (chat.participants && Array.isArray(chat.participants)) {
-          const otherUserId = chat.participants.find(id => id !== senderId);
-          
-          await updateDoc(chatRef, {
-            lastMessage: text.trim(),
-            lastMessageTime: Date.now(),
-            updatedAt: Date.now(),
-            [`unreadCount.${otherUserId}`]: (chat.unreadCount?.[otherUserId || ''] || 0) + 1,
-          });
-        }
-      }
-      
-      return messageRef.id;
-    } catch (error: any) {
-      throw new Error(error.message);
+  async sendMessage(
+    chatId: string,
+    senderId: string,
+    text: string,
+    senderUsername: string,
+    senderPhotoURL?: string
+  ): Promise<string> {
+    const payload: Record<string, unknown> = {
+      chat_id: chatId,
+      sender_id: senderId,
+      sender_username: senderUsername,
+      text: text.trim(),
+      read: false,
+    };
+    if (senderPhotoURL?.trim()) payload.sender_photo_url = senderPhotoURL;
+
+    const { data, error } = await supabase.from('messages').insert(payload).select('id').single();
+    if (error) throw new Error(error.message);
+
+    const now = new Date().toISOString();
+    await supabase
+      .from('chats')
+      .update({
+        last_message: text.trim(),
+        last_message_time: now,
+        updated_at: now,
+      })
+      .eq('id', chatId);
+
+    const { data: parts } = await supabase
+      .from('chat_participants')
+      .select('user_id, unread_count')
+      .eq('chat_id', chatId);
+
+    const other = (parts || []).find((p) => p.user_id !== senderId);
+    if (other) {
+      await supabase
+        .from('chat_participants')
+        .update({ unread_count: (other.unread_count || 0) + 1 })
+        .eq('chat_id', chatId)
+        .eq('user_id', other.user_id);
     }
+
+    return data.id;
   },
 
-  // Obter mensagens de um chat
   async getChatMessages(chatId: string, limitCount: number = 50): Promise<Message[]> {
-    try {
-      const q = query(
-        collection(db, 'messages'),
-        where('chatId', '==', chatId),
-        orderBy('createdAt', 'desc'),
-        limit(limitCount)
-      );
-      
-      const snapshot = await getDocs(q);
-      return snapshot.docs
-        .map(doc => doc.data() as Message)
-        .reverse(); // Reverter para ordem cronológica
-    } catch (error: any) {
-      throw new Error(error.message);
-    }
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('chat_id', chatId)
+      .order('created_at', { ascending: false })
+      .limit(limitCount);
+    if (error) throw new Error(error.message);
+    return (data || []).map(mapMessage).reverse();
   },
 
-  // Obter chats de um usuário
-  async getUserChats(userId: string): Promise<(Chat & { otherUser?: { uid: string; username: string; photoURL?: string } })[]> {
+  async getUserChats(
+    userId: string
+  ): Promise<(Chat & { otherUser?: { uid: string; username: string; photoURL?: string } })[]> {
     try {
-      // Tentar buscar com query otimizada primeiro
-      let chats: Chat[] = [];
-      
-      try {
-        const q = query(
-          collection(db, 'chats'),
-          where('participants', 'array-contains', userId),
-          limit(50)
-        );
-        
-        const snapshot = await getDocs(q);
-        chats = snapshot.docs
-          .map(doc => doc.data() as Chat)
-          .filter(chat => {
-            // Filtrar apenas chats com participants válido
-            if (!chat.participants || !Array.isArray(chat.participants)) {
-              console.warn('⚠️ Chat com participants inválido ignorado:', chat.id);
-              return false;
-            }
-            return true;
+      const { data: parts, error } = await supabase
+        .from('chat_participants')
+        .select('chat_id, unread_count')
+        .eq('user_id', userId);
+      if (error) throw error;
+      if (!parts?.length) return [];
+
+      const chatIds = parts.map((p) => p.chat_id);
+      const unreadMap: Record<string, number> = {};
+      parts.forEach((p) => {
+        unreadMap[p.chat_id] = p.unread_count || 0;
+      });
+
+      const { data: chats } = await supabase
+        .from('chats')
+        .select('*')
+        .in('id', chatIds)
+        .order('updated_at', { ascending: false });
+
+      const { data: allParts } = await supabase
+        .from('chat_participants')
+        .select('chat_id, user_id, unread_count')
+        .in('chat_id', chatIds);
+
+      const result: (Chat & {
+        otherUser?: { uid: string; username: string; photoURL?: string };
+      })[] = [];
+
+      for (const chat of chats || []) {
+        const participants = (allParts || [])
+          .filter((p) => p.chat_id === chat.id)
+          .map((p) => p.user_id);
+        const unreadCount: Record<string, number> = {};
+        (allParts || [])
+          .filter((p) => p.chat_id === chat.id)
+          .forEach((p) => {
+            unreadCount[p.user_id] = p.unread_count || 0;
           });
-        
-        // Ordenar por updatedAt
-        chats.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-      } catch (queryError: any) {
-        // Se a query falhar por permissões, retornar array vazio
-        if (queryError.code === 'permission-denied' || queryError.message?.includes('permission')) {
-          return [];
+
+        const mapped: Chat & {
+          otherUser?: { uid: string; username: string; photoURL?: string };
+        } = {
+          id: chat.id,
+          participants,
+          lastMessage: chat.last_message ?? undefined,
+          lastMessageTime: chat.last_message_time
+            ? toMillis(chat.last_message_time)
+            : undefined,
+          unreadCount,
+          createdAt: toMillis(chat.created_at),
+          updatedAt: toMillis(chat.updated_at),
+        };
+
+        const otherUserId = participants.find((id) => id !== userId);
+        if (otherUserId) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id, username, photo_url')
+            .eq('id', otherUserId)
+            .maybeSingle();
+          if (profile) {
+            mapped.otherUser = {
+              uid: profile.id,
+              username: profile.username,
+              photoURL: profile.photo_url ?? undefined,
+            };
+          }
         }
-        // Se falhar por falta de índice, também retornar vazio (mais seguro que buscar todos)
-        console.warn('⚠️ Não foi possível buscar chats:', queryError.message);
-        return [];
+        result.push(mapped);
       }
-      
-      // Buscar informações do outro usuário em cada chat
-      const chatsWithUsers = await Promise.all(
-        chats.map(async (chat) => {
-          // Verificar se participants existe e é um array
-          if (!chat.participants || !Array.isArray(chat.participants)) {
-            return chat;
-          }
-          
-          const otherUserId = chat.participants.find(id => id !== userId);
-          if (otherUserId) {
-            try {
-              const userDoc = await getDoc(doc(db, 'users', otherUserId));
-              if (userDoc.exists()) {
-                const userData = userDoc.data();
-                return {
-                  ...chat,
-                  otherUser: {
-                    uid: otherUserId,
-                    username: userData.username,
-                    photoURL: userData.photoURL,
-                  },
-                };
-              }
-            } catch (error) {
-              console.error('Erro ao buscar usuário:', error);
-            }
-          }
-          return chat;
-        })
-      );
-      
-      return chatsWithUsers;
+
+      return result;
     } catch (error: any) {
       throw new Error(error.message);
     }
   },
 
-  // Marcar mensagens como lidas
   async markMessagesAsRead(chatId: string, userId: string): Promise<void> {
-    try {
-      const messages = await this.getChatMessages(chatId, 100);
-      const unreadMessages = messages.filter(msg => !msg.read && msg.senderId !== userId);
-      
-      if (unreadMessages.length === 0) return;
-      
-      const batch = await import('firebase/firestore').then(m => m.writeBatch);
-      const batchInstance = batch(db);
-      
-      unreadMessages.forEach(msg => {
-        const messageRef = doc(db, 'messages', msg.id);
-        batchInstance.update(messageRef, { read: true });
-      });
-      
-      // Resetar contador de não lidas
-      const chatRef = doc(db, 'chats', chatId);
-      batchInstance.update(chatRef, {
-        [`unreadCount.${userId}`]: 0,
-      });
-      
-      await batchInstance.commit();
-    } catch (error: any) {
-      throw new Error(error.message);
-    }
+    await supabase
+      .from('messages')
+      .update({ read: true })
+      .eq('chat_id', chatId)
+      .neq('sender_id', userId)
+      .eq('read', false);
+
+    await supabase
+      .from('chat_participants')
+      .update({ unread_count: 0 })
+      .eq('chat_id', chatId)
+      .eq('user_id', userId);
   },
 
-  // Listener em tempo real para mensagens
   subscribeToMessages(chatId: string, callback: (messages: Message[]) => void): () => void {
-    const q = query(
-      collection(db, 'messages'),
-      where('chatId', '==', chatId),
-      orderBy('createdAt', 'desc'),
-      limit(50)
-    );
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const messages = snapshot.docs
-        .map(doc => doc.data() as Message)
-        .reverse();
-      callback(messages);
-    });
-    
-    return unsubscribe;
+    const channel = supabase
+      .channel(`messages:${chatId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `chat_id=eq.${chatId}`,
+        },
+        async () => {
+          const messages = await this.getChatMessages(chatId, 50);
+          callback(messages);
+        }
+      )
+      .subscribe();
+
+    this.getChatMessages(chatId, 50).then(callback).catch(() => callback([]));
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   },
 
-  // Listener em tempo real para chats
   subscribeToUserChats(userId: string, callback: (chats: Chat[]) => void): () => void {
-    const q = query(
-      collection(db, 'chats'),
-      where('participants', 'array-contains', userId),
-      limit(50)
-    );
-    
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const chats = snapshot.docs
-          .map(doc => doc.data() as Chat)
-          .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    const reload = async () => {
+      try {
+        const chats = await this.getUserChats(userId);
         callback(chats);
-      },
-      (error) => {
-        console.warn('Chats indisponíveis:', error.message);
+      } catch {
         callback([]);
       }
-    );
-    
-    return unsubscribe;
+    };
+
+    const channel = supabase
+      .channel(`chats:${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'chats' },
+        () => {
+          reload();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'chat_participants' },
+        () => {
+          reload();
+        }
+      )
+      .subscribe();
+
+    reload();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   },
 
-  // Obter total de mensagens não lidas de um usuário
   async getTotalUnreadCount(userId: string): Promise<number> {
     try {
-      const chats = await this.getUserChats(userId);
-      let totalUnread = 0;
-      
-      chats.forEach(chat => {
-        if (chat.unreadCount && chat.unreadCount[userId]) {
-          totalUnread += chat.unreadCount[userId];
-        }
-      });
-      
-      return totalUnread;
-    } catch (error: any) {
-      console.error('❌ Erro ao contar mensagens não lidas:', error);
+      const { data } = await supabase
+        .from('chat_participants')
+        .select('unread_count')
+        .eq('user_id', userId);
+      return (data || []).reduce((sum, row) => sum + (row.unread_count || 0), 0);
+    } catch {
       return 0;
     }
   },

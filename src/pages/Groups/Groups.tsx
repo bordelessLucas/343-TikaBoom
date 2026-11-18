@@ -4,14 +4,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '../../routes/NavigationContext';
 import { styles } from './Groups.styles';
-import { auth } from '../../lib/firebaseconfig';
+import { auth } from '../../lib/supabase';
 import { groupsService, Group } from '../../services/groupsService';
 import { KeyboardAvoid } from '../../components/KeyboardAvoid/KeyboardAvoid';
+import { useSafePad } from '../../hooks/useSafePad';
 
 type TabType = 'my' | 'discover';
 
 export const Groups = () => {
     const { navigate } = useNavigation();
+    const safe = useSafePad();
     const [activeTab, setActiveTab] = useState<TabType>('my');
     const [myGroups, setMyGroups] = useState<Group[]>([]);
     const [discoverGroups, setDiscoverGroups] = useState<Group[]>([]);
@@ -117,7 +119,7 @@ export const Groups = () => {
             style={styles.container}
         >
             <KeyboardAvoid scroll={false}>
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: safe.paddingTop }]}>
                 <TouchableOpacity onPress={() => navigate('Home')} style={styles.backButton}>
                     <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
                 </TouchableOpacity>

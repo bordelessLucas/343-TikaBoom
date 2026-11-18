@@ -1,17 +1,12 @@
-import { StyleSheet, Platform, Dimensions } from 'react-native';
-
-const { height } = Dimensions.get('window');
-const isMobile = Platform.OS === 'ios' || Platform.OS === 'android';
-const isSmallDevice = height < 800;
+import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
     gradientContainer: {
         position: 'absolute',
-        top: isMobile ? (Platform.OS === 'ios' ? (isSmallDevice ? 50 : 60) : (isSmallDevice ? 40 : 50)) : 0,
+        top: 0,
         left: 0,
         right: 0,
         zIndex: 100,
-        paddingTop: isMobile ? (Platform.OS === 'ios' ? (isSmallDevice ? 20 : 25) : (isSmallDevice ? 15 : 20)) : 55,
         paddingBottom: 12,
     },
     container: {
@@ -20,17 +15,18 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 16,
         gap: 8,
+        minHeight: 44,
     },
     tab: {
         flex: 1,
         alignItems: 'center',
-        paddingVertical: 8,
+        paddingVertical: 10,
         position: 'relative',
         minWidth: 80,
     },
     tabText: {
         color: 'rgba(255, 255, 255, 0.7)',
-        fontSize: 15,
+        fontSize: 16,
         fontWeight: '600',
         textShadowColor: 'rgba(0, 0, 0, 0.8)',
         textShadowOffset: { width: 0, height: 1 },
@@ -46,17 +42,12 @@ export const styles = StyleSheet.create({
     },
     tabUnderline: {
         position: 'absolute',
-        bottom: 4,
-        left: '25%',
-        right: '25%',
+        bottom: 2,
+        left: '28%',
+        right: '28%',
         height: 3,
         backgroundColor: '#FFFFFF',
         borderRadius: 2,
-        shadowColor: '#FFFFFF',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 4,
-        elevation: 4,
     },
     searchButton: {
         padding: 8,
@@ -96,4 +87,3 @@ export const styles = StyleSheet.create({
         fontWeight: '700',
     },
 });
-

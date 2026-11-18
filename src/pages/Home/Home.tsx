@@ -19,7 +19,8 @@ interface FeedItem {
     comments: any[];
     saves: number;
     shares: number;
-    postId: string; // Sempre presente para posts do Firebase
+    postId: string;
+    authorId: string;
     userProfileImage?: string;
     creatorProfileImage?: string;
 }
@@ -34,7 +35,6 @@ export const Home = () => {
 
     useEffect(() => {
         if (currentScreen === 'Home') {
-            setActiveTab('forYou');
             loadFeed();
         }
     }, [currentScreen]);
@@ -89,15 +89,14 @@ export const Home = () => {
     const loadFeed = async () => {
         try {
             setLoading(true);
-            // Buscar APENAS posts do Firebase (sem mockados)
-            const firebasePosts = await postsService.getFeedPosts(50);
-            
-            // Converter posts do Firebase para formato do feed (vídeo e foto)
-            const feedItems: FeedItem[] = firebasePosts
+            const remotePosts = await postsService.getFeedPosts(50);
+
+            const feedItems: FeedItem[] = remotePosts
                 .filter(post => Boolean(post.mediaURL))
                 .map(post => ({
                     id: post.id,
                     postId: post.id,
+                    authorId: post.authorId,
                     videoUri: post.mediaURL,
                     mediaType: post.mediaType === 'photo' ? 'photo' : 'video',
                     username: post.authorUsername,
@@ -113,9 +112,9 @@ export const Home = () => {
             setFeedItems(feedItems);
             
             if (feedItems.length === 0) {
-                console.log('📭 Nenhum post encontrado no feed');
+                console.log('Nenhum post encontrado no feed');
             } else {
-                console.log(`✅ ${feedItems.length} posts carregados do Firebase`);
+                console.log(`${feedItems.length} posts carregados do Supabase`);
             }
         } catch (error) {
             console.error('❌ Erro ao carregar feed:', error);
@@ -155,6 +154,7 @@ export const Home = () => {
                 saves={item.saves}
                 shares={item.shares}
                 postId={item.postId}
+                authorId={item.authorId}
                 userProfileImage={item.userProfileImage}
                 creatorProfileImage={item.creatorProfileImage}
             />

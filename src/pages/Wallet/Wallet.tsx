@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '../../routes/NavigationContext';
 import { styles } from './Wallet.styles';
+import { useSafePad } from '../../hooks/useSafePad';
 
 interface Transaction {
     id: string;
@@ -16,6 +17,7 @@ interface Transaction {
 
 export const Wallet = () => {
     const { navigate } = useNavigation();
+    const safe = useSafePad();
     const [balance] = useState(1250.50);
     const [totalEarned] = useState(3450.00);
     const [totalSpent] = useState(2199.50);
@@ -224,7 +226,7 @@ export const Wallet = () => {
             style={styles.container}
         >
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: safe.paddingTop }]}>
                 <TouchableOpacity onPress={() => navigate('MyProfile')} style={styles.backButton}>
                     <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
                 </TouchableOpacity>

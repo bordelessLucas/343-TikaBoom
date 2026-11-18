@@ -7,7 +7,7 @@ type Props = {
   style?: object;
 };
 
-/** Player/Host Daily Prebuilt dentro do app */
+/** Player/Host LIVE (LiveKit Meet ou Daily Prebuilt) via WebView */
 export function LiveRoomWebView({ roomUrl, style }: Props) {
   if (!roomUrl) {
     return (

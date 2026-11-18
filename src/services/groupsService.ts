@@ -1,40 +1,26 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  setDoc,
-  updateDoc,
-  query,
-  where,
-  arrayUnion,
-  arrayRemove,
-  orderBy,
-  limit,
-} from 'firebase/firestore';
-import { db } from '../lib/firebaseconfig';
-import { UserProfile } from './authService';
+import { supabase } from '../lib/supabase';
+import { toMillis } from '../lib/mappers';
+import type { Group, GroupMessage } from '../types/models';
 
-export interface Group {
-  id: string;
-  name: string;
-  description?: string;
-  ownerId: string;
-  members: string[];
-  interests: string[];
-  createdAt: number;
-  lastMessage?: string;
-  lastMessageTime?: number;
-}
+export type { Group, GroupMessage };
 
-export interface GroupMessage {
-  id: string;
-  groupId: string;
-  senderId: string;
-  senderUsername: string;
-  senderPhotoURL?: string;
-  text: string;
-  createdAt: number;
+async function mapGroup(row: any): Promise<Group> {
+  const { data: members } = await supabase
+    .from('group_members')
+    .select('user_id')
+    .eq('group_id', row.id);
+
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? undefined,
+    ownerId: row.owner_id,
+    members: (members || []).map((m) => m.user_id),
+    interests: row.interests || [],
+    createdAt: toMillis(row.created_at),
+    lastMessage: row.last_message ?? undefined,
+    lastMessageTime: row.last_message_time ? toMillis(row.last_message_time) : undefined,
+  };
 }
 
 export const groupsService = {
@@ -42,62 +28,81 @@ export const groupsService = {
     ownerId: string,
     name: string,
     description: string,
-    interests: string[],
+    interests: string[]
   ): Promise<string> {
-    const groupRef = doc(collection(db, 'groups'));
-    const group: Group = {
-      id: groupRef.id,
-      name: name.trim(),
-      description: description.trim(),
-      ownerId,
-      members: [ownerId],
-      interests,
-      createdAt: Date.now(),
-    };
+    const { data, error } = await supabase
+      .from('groups')
+      .insert({
+        name: name.trim(),
+        description: description.trim(),
+        owner_id: ownerId,
+        interests,
+      })
+      .select('id')
+      .single();
+    if (error) throw new Error(error.message);
 
-    await setDoc(groupRef, group);
-    return groupRef.id;
+    const { error: memErr } = await supabase.from('group_members').insert({
+      group_id: data.id,
+      user_id: ownerId,
+    });
+    if (memErr) throw new Error(memErr.message);
+
+    return data.id;
   },
 
   async getUserGroups(userId: string): Promise<Group[]> {
-    const q = query(
-      collection(db, 'groups'),
-      where('members', 'array-contains', userId),
-      orderBy('createdAt', 'desc'),
-      limit(50),
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => d.data() as Group);
+    const { data: memberships, error } = await supabase
+      .from('group_members')
+      .select('group_id')
+      .eq('user_id', userId);
+    if (error) throw new Error(error.message);
+    const ids = (memberships || []).map((m) => m.group_id);
+    if (!ids.length) return [];
+
+    const { data: groups, error: gErr } = await supabase
+      .from('groups')
+      .select('*')
+      .in('id', ids)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (gErr) throw new Error(gErr.message);
+
+    return Promise.all((groups || []).map(mapGroup));
   },
 
   async getGroupsByInterest(interest: string, limitCount = 20): Promise<Group[]> {
-    const q = query(
-      collection(db, 'groups'),
-      where('interests', 'array-contains', interest.toLowerCase()),
-      limit(limitCount),
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => d.data() as Group);
+    const { data, error } = await supabase
+      .from('groups')
+      .select('*')
+      .contains('interests', [interest.toLowerCase()])
+      .limit(limitCount);
+    if (error) throw new Error(error.message);
+    return Promise.all((data || []).map(mapGroup));
   },
 
   async joinGroup(groupId: string, userId: string): Promise<void> {
-    const ref = doc(db, 'groups', groupId);
-    await updateDoc(ref, {
-      members: arrayUnion(userId),
+    const { error } = await supabase.from('group_members').upsert({
+      group_id: groupId,
+      user_id: userId,
     });
+    if (error) throw new Error(error.message);
   },
 
   async leaveGroup(groupId: string, userId: string): Promise<void> {
-    const ref = doc(db, 'groups', groupId);
-    await updateDoc(ref, {
-      members: arrayRemove(userId),
-    });
+    const { error } = await supabase
+      .from('group_members')
+      .delete()
+      .eq('group_id', groupId)
+      .eq('user_id', userId);
+    if (error) throw new Error(error.message);
   },
 
   async getGroup(groupId: string): Promise<Group | null> {
-    const ref = doc(db, 'groups', groupId);
-    const snap = await getDoc(ref);
-    return snap.exists() ? (snap.data() as Group) : null;
+    const { data, error } = await supabase.from('groups').select('*').eq('id', groupId).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return null;
+    return mapGroup(data);
   },
 
   async sendGroupMessage(
@@ -105,43 +110,53 @@ export const groupsService = {
     senderId: string,
     text: string,
     senderUsername: string,
-    senderPhotoURL?: string,
+    senderPhotoURL?: string
   ): Promise<string> {
-    const messageRef = doc(collection(db, 'groupMessages'));
-    const message: GroupMessage = {
-      id: messageRef.id,
-      groupId,
-      senderId,
-      senderUsername,
+    const payload: Record<string, unknown> = {
+      group_id: groupId,
+      sender_id: senderId,
+      sender_username: senderUsername,
       text: text.trim(),
-      createdAt: Date.now(),
-      senderPhotoURL,
     };
+    if (senderPhotoURL) payload.sender_photo_url = senderPhotoURL;
 
-    await setDoc(messageRef, message);
+    const { data, error } = await supabase
+      .from('group_messages')
+      .insert(payload)
+      .select('id')
+      .single();
+    if (error) throw new Error(error.message);
 
-    // atualizar último recado no grupo
-    const groupRef = doc(db, 'groups', groupId);
-    await updateDoc(groupRef, {
-      lastMessage: message.text,
-      lastMessageTime: message.createdAt,
-    });
+    await supabase
+      .from('groups')
+      .update({
+        last_message: text.trim(),
+        last_message_time: new Date().toISOString(),
+      })
+      .eq('id', groupId);
 
-    return messageRef.id;
+    return data.id;
   },
 
   async getGroupMessages(groupId: string, limitCount = 50): Promise<GroupMessage[]> {
-    const q = query(
-      collection(db, 'groupMessages'),
-      where('groupId', '==', groupId),
-      orderBy('createdAt', 'desc'),
-      limit(limitCount),
-    );
+    const { data, error } = await supabase
+      .from('group_messages')
+      .select('*')
+      .eq('group_id', groupId)
+      .order('created_at', { ascending: false })
+      .limit(limitCount);
+    if (error) throw new Error(error.message);
 
-    const snap = await getDocs(q);
-    return snap.docs
-      .map((d) => d.data() as GroupMessage)
+    return (data || [])
+      .map((row) => ({
+        id: row.id,
+        groupId: row.group_id,
+        senderId: row.sender_id,
+        senderUsername: row.sender_username,
+        senderPhotoURL: row.sender_photo_url ?? undefined,
+        text: row.text,
+        createdAt: toMillis(row.created_at),
+      }))
       .reverse();
   },
 };
-

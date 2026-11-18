@@ -1,298 +1,206 @@
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut, 
-  updateProfile,
-  onAuthStateChanged,
-  User,
-  UserCredential 
-} from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import * as FileSystem from 'expo-file-system/legacy';
-import { toByteArray } from 'base64-js';
-import { auth, db, storage } from '../lib/firebaseconfig';
+import { supabase, auth, refreshAuthUser } from '../lib/supabase';
+import { mapProfile } from '../lib/mappers';
+import { uploadLocalFile } from '../lib/storageUpload';
+import type { UserProfile } from '../types/models';
 
-export interface UserProfile {
-  isVerified: any;
-  uid: string;
-  email: string;
-  displayName: string;
-  username: string;
-  photoURL?: string;
-  bio?: string;
-  followers: number;
-  following: number;
-  posts: number;
-  likes: number;
-  isPrivate: boolean;
-  createdAt: number;
-}
+export type { UserProfile };
+
+export type AuthSessionResult = {
+  user: { uid: string; email: string | null; displayName?: string | null };
+};
 
 export const authService = {
-  // Registrar novo usuário
-  async register(email: string, password: string, username: string, displayName: string): Promise<UserCredential> {
+  async register(
+    email: string,
+    password: string,
+    username: string,
+    displayName: string
+  ): Promise<AuthSessionResult> {
     try {
-      console.log('🔄 Iniciando registro de usuário...', { email, username });
-      
-      // Criar usuário no Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      console.log('✅ Usuário criado no Auth:', userCredential.user.uid);
-      
-      // Atualizar perfil no Auth
-      await updateProfile(userCredential.user, { displayName });
-      console.log('✅ Perfil do Auth atualizado');
-
-      // Aguardar o estado de autenticação ser confirmado pelo Firebase
-      // antes de tentar gravar no Firestore
-      await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          unsubscribe();
-          reject(new Error('Timeout ao aguardar autenticação'));
-        }, 10000);
-
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-          if (user && user.uid === userCredential.user.uid) {
-            clearTimeout(timeout);
-            unsubscribe();
-            resolve();
-          }
-        });
-      });
-      console.log('✅ Estado de autenticação confirmado');
-
-      // Forçar renovação do token
-      await userCredential.user.getIdToken(true);
-      console.log('✅ Token renovado');
-      
-      // Verificar se username está disponível (agora que está autenticado)
       const usernameLower = username.toLowerCase();
-      const isAvailable = await this.isUsernameAvailable(usernameLower);
-      if (!isAvailable) {
-        // Deletar o usuário do Auth se o username não estiver disponível
-        await userCredential.user.delete();
+      const available = await this.isUsernameAvailable(usernameLower);
+      if (!available) {
         throw new Error('Este username já está em uso. Escolha outro.');
       }
-      console.log('✅ Username disponível');
-      
-      // Criar perfil no Firestore
-      const userProfile: UserProfile & { followingList?: string[]; followersList?: string[] } = {
-        uid: userCredential.user.uid,
+
+      const { data, error } = await supabase.auth.signUp({
         email,
-        displayName,
-        username: usernameLower,
-        followers: 0,
-        following: 0,
-        posts: 0,
-        likes: 0,
-        isPrivate: false,
-        createdAt: Date.now(),
-        followingList: [],
-        followersList: [],
-      };
-      
-      console.log('📝 Criando perfil no Firestore...');
-      console.log('🔑 UID do usuário:', userCredential.user.uid);
-      console.log('🔑 auth.currentUser:', auth.currentUser?.uid);
-      await setDoc(doc(db, 'users', userCredential.user.uid), userProfile);
-      console.log('✅ Perfil criado no Firestore');
-      
-      return userCredential;
-    } catch (error: any) {
-      console.error('❌ Erro detalhado no registro:', {
-        code: error.code,
-        message: error.message,
-        stack: error.stack,
+        password,
+        options: {
+          data: {
+            username: usernameLower,
+            display_name: displayName,
+          },
+        },
       });
-      
-      // Mensagens de erro mais amigáveis
-      if (error.code === 'auth/email-already-in-use') {
+
+      if (error) throw error;
+      if (!data.user) throw new Error('Erro ao criar conta. Tente novamente.');
+
+      await refreshAuthUser();
+
+      // Garante perfil (trigger + fallback)
+      await this.ensureUserProfile(data.user.id, email, displayName, usernameLower);
+
+      return {
+        user: {
+          uid: data.user.id,
+          email: data.user.email ?? email,
+          displayName,
+        },
+      };
+    } catch (error: any) {
+      const msg = String(error?.message || '');
+      if (msg.toLowerCase().includes('already registered') || error?.code === 'user_already_exists') {
         throw new Error('Este email já está em uso. Tente fazer login.');
-      } else if (error.code === 'auth/weak-password') {
+      }
+      if (msg.toLowerCase().includes('password')) {
         throw new Error('A senha é muito fraca. Use pelo menos 6 caracteres.');
-      } else if (error.code === 'auth/invalid-email') {
+      }
+      if (msg.toLowerCase().includes('email')) {
         throw new Error('Email inválido. Verifique o formato do email.');
-      } else if (error.code === 'permission-denied' || error.message?.includes('permission')) {
-        throw new Error('Erro de permissão. Verifique as regras de segurança do Firestore. O usuário precisa ter permissão para criar seu próprio perfil.');
-      } else if (error.message?.includes('username')) {
+      }
+      if (msg.includes('username')) {
         throw new Error('Username já está em uso. Escolha outro.');
       }
-      
       throw new Error(error.message || 'Erro ao criar conta. Tente novamente.');
     }
   },
 
-  // Login
-  async login(email: string, password: string): Promise<UserCredential> {
+  async login(email: string, password: string): Promise<AuthSessionResult> {
     try {
-      const credential = await signInWithEmailAndPassword(auth, email, password);
-      await credential.user.getIdToken(true);
-      await this.ensureUserProfile(credential.user.uid, email, credential.user.displayName);
-      return credential;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      if (!data.user) throw new Error('Erro ao fazer login.');
+
+      await refreshAuthUser();
+      await this.ensureUserProfile(
+        data.user.id,
+        email,
+        (data.user.user_metadata?.display_name as string) || null
+      );
+
+      return {
+        user: {
+          uid: data.user.id,
+          email: data.user.email ?? email,
+          displayName: (data.user.user_metadata?.display_name as string) || null,
+        },
+      };
     } catch (error: any) {
-      const code = error?.code || '';
-      if (
-        code === 'auth/invalid-credential' ||
-        code === 'auth/wrong-password' ||
-        code === 'auth/user-not-found' ||
-        code === 'auth/invalid-login-credentials'
-      ) {
+      const msg = String(error?.message || '').toLowerCase();
+      if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
         throw new Error('Email ou senha incorretos.');
       }
-      if (code === 'auth/too-many-requests') {
+      if (msg.includes('too many')) {
         throw new Error('Muitas tentativas. Espere um pouco e tente de novo.');
       }
-      if (code === 'auth/network-request-failed') {
-        throw new Error('Sem conexão com o Firebase.');
+      if (msg.includes('network') || msg.includes('fetch')) {
+        throw new Error('Sem conexão com o Supabase.');
       }
       throw new Error(error.message || 'Erro ao fazer login.');
     }
   },
 
-  async ensureUserProfile(uid: string, email: string, displayName?: string | null): Promise<void> {
+  async ensureUserProfile(
+    uid: string,
+    email: string,
+    displayName?: string | null,
+    username?: string
+  ): Promise<void> {
     try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) return;
+      const { data } = await supabase.from('profiles').select('id').eq('id', uid).maybeSingle();
+      if (data) return;
 
       const name = displayName || email.split('@')[0];
-      const username = email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20) || 'user';
-      await setDoc(doc(db, 'users', uid), {
-        uid,
+      const uname =
+        username ||
+        email
+          .split('@')[0]
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, '')
+          .slice(0, 20) ||
+        'user';
+
+      await supabase.from('profiles').upsert({
+        id: uid,
         email,
-        displayName: name,
-        username,
-        followers: 0,
-        following: 0,
-        posts: 0,
-        likes: 0,
-        isPrivate: false,
-        createdAt: Date.now(),
-        followingList: [],
-        followersList: [],
+        display_name: name,
+        username: uname,
       });
     } catch (error) {
-      console.warn('Perfil não gravado no Firestore. Libere as regras de users para o usuário autenticado.', error);
+      console.warn('Perfil não gravado no Supabase.', error);
     }
   },
 
-  // Logout
   async logout(): Promise<void> {
-    try {
-      await signOut(auth);
-    } catch (error: any) {
-      throw new Error(error.message);
-    }
+    const { error } = await supabase.auth.signOut();
+    if (error) throw new Error(error.message);
   },
 
-  // Obter perfil do usuário
   async getUserProfile(uid: string): Promise<UserProfile | null> {
     try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) {
-        return userDoc.data() as UserProfile;
-      }
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
+      if (error) throw error;
+      return data ? mapProfile(data) : null;
+    } catch (error: any) {
+      console.warn('getUserProfile:', error?.message);
       return null;
-    } catch (error: any) {
-      if (error?.code === 'permission-denied' || String(error?.message || '').includes('permission')) {
-        return null;
-      }
-      throw new Error(error.message);
     }
   },
 
-  // Atualizar perfil
   async updateUserProfile(uid: string, updates: Partial<UserProfile>): Promise<void> {
-    try {
-      await updateDoc(doc(db, 'users', uid), updates);
-      
-      // Atualizar também no Auth se houver displayName ou photoURL
-      const user = auth.currentUser;
-      if (user) {
-        const authUpdates: any = {};
-        if (updates.displayName) authUpdates.displayName = updates.displayName;
-        if (updates.photoURL) authUpdates.photoURL = updates.photoURL;
-        if (Object.keys(authUpdates).length > 0) {
-          await updateProfile(user, authUpdates);
-        }
+    const payload: Record<string, unknown> = {};
+    if (updates.displayName !== undefined) payload.display_name = updates.displayName;
+    if (updates.username !== undefined) payload.username = updates.username.toLowerCase();
+    if (updates.photoURL !== undefined) payload.photo_url = updates.photoURL;
+    if (updates.bio !== undefined) payload.bio = updates.bio;
+    if (updates.isPrivate !== undefined) payload.is_private = updates.isPrivate;
+
+    const { error } = await supabase.from('profiles').update(payload).eq('id', uid);
+    if (error) throw new Error(error.message);
+
+    if (auth.currentUser?.uid === uid) {
+      const meta: Record<string, string> = {};
+      if (updates.displayName) meta.display_name = updates.displayName;
+      if (updates.photoURL) meta.photo_url = updates.photoURL;
+      if (Object.keys(meta).length > 0) {
+        await supabase.auth.updateUser({ data: meta });
+        await refreshAuthUser();
       }
-    } catch (error: any) {
-      throw new Error(error.message);
     }
   },
 
-  // Upload de foto de perfil
   async uploadProfilePhoto(uid: string, uri: string): Promise<string> {
     try {
-      console.log('📤 Fazendo upload de foto de perfil...', { uid });
-      
-      // Ler o arquivo como base64 usando expo-file-system
-      const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
+      await refreshAuthUser();
+      const fileExtension = uri.toLowerCase().includes('.png') ? 'png' : 'jpg';
+      const contentType = fileExtension === 'png' ? 'image/png' : 'image/jpeg';
+      const path = `${uid}/avatar_${Date.now()}.${fileExtension}`;
+
+      const downloadURL = await uploadLocalFile({
+        bucket: 'avatars',
+        path,
+        uri,
+        contentType,
+        upsert: true,
       });
-      
-      const fileExtension = uri.includes('.png') ? 'png' : 'jpg';
-      const storageRef = ref(storage, `profilePhotos/${uid}_${Date.now()}.${fileExtension}`);
-      
-      const metadata = {
-        contentType: fileExtension === 'png' ? 'image/png' : 'image/jpeg',
-        customMetadata: {
-          uploadedBy: uid,
-          uploadedAt: Date.now().toString(),
-        },
-      };
-      
-      // Converter base64 para bytes
-      const bytes = toByteArray(base64);
-      
-      // Upload usando uploadBytesResumable com timeout
-      const uploadTask = uploadBytesResumable(storageRef, bytes, metadata);
-      
-      await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          uploadTask.cancel();
-          reject(new Error('Upload timeout após 30 segundos'));
-        }, 30000);
-        
-        uploadTask.on(
-          'state_changed',
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            if (progress === 100) clearTimeout(timeout);
-          },
-          (error) => {
-            clearTimeout(timeout);
-            reject(error);
-          },
-          () => {
-            clearTimeout(timeout);
-            resolve();
-          }
-        );
-      });
-      
-      const downloadURL = await getDownloadURL(storageRef);
-      console.log('✅ Foto de perfil enviada:', downloadURL.substring(0, 50) + '...');
-      
-      // Atualizar perfil com nova foto
+
       await this.updateUserProfile(uid, { photoURL: downloadURL });
-      
       return downloadURL;
     } catch (error: any) {
-      console.error('❌ Erro ao fazer upload de foto:', error);
+      console.error('Erro ao fazer upload de foto:', error);
       throw new Error(error.message || 'Erro ao fazer upload da foto de perfil');
     }
   },
 
-  // Verificar se username está disponível
   async isUsernameAvailable(username: string): Promise<boolean> {
-    try {
-      // Buscar usuários com esse username
-      const { collection, query, where, getDocs } = await import('firebase/firestore');
-      const q = query(collection(db, 'users'), where('username', '==', username.toLowerCase()));
-      const snapshot = await getDocs(q);
-      return snapshot.empty;
-    } catch (error: any) {
-      throw new Error(error.message);
-    }
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('username', username.toLowerCase())
+      .maybeSingle();
+    if (error && error.code !== 'PGRST116') throw new Error(error.message);
+    return !data;
   },
 };

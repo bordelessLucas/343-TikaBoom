@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { styles } from './Messages.styles';
-import { auth } from '../../lib/firebaseconfig';
+import { auth } from '../../lib/supabase';
 import { notificationsService, Notification } from '../../services/notificationsService';
 import { useNavigation } from '../../routes/NavigationContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';

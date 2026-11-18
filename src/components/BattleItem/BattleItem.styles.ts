@@ -2,23 +2,23 @@ import { StyleSheet, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 const VIDEO_WIDTH = width / 2;
-const TOP_BAR_HEIGHT = 60;
-const BOTTOM_NAV_HEIGHT = 85;
-const AVAILABLE_HEIGHT = height - TOP_BAR_HEIGHT;
-const VIDEO_HEIGHT = AVAILABLE_HEIGHT * 1.2;
+const BOTTOM_NAV = 90;
+const AVAILABLE_HEIGHT = Math.max(height - 140 - BOTTOM_NAV, 400);
+const VIDEO_HEIGHT = Math.min(AVAILABLE_HEIGHT * 0.88, height * 0.62);
 const MIN_CHAT_HEIGHT = AVAILABLE_HEIGHT * 0.15;
-const MAX_CHAT_HEIGHT = AVAILABLE_HEIGHT * 0.7;
-const DEFAULT_OPEN_HEIGHT = AVAILABLE_HEIGHT * 0.3;
+const MAX_CHAT_HEIGHT = AVAILABLE_HEIGHT * 0.55;
+const DEFAULT_OPEN_HEIGHT = AVAILABLE_HEIGHT * 0.28;
 
 export const styles = StyleSheet.create({
     container: {
-        width,
-        height,
+        width: '100%',
+        flex: 1,
         flexDirection: 'row',
         position: 'relative',
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: '#0a0a1a',
+        overflow: 'hidden',
     },
     videoWrapper: {
         width: VIDEO_WIDTH,
@@ -106,7 +106,7 @@ export const styles = StyleSheet.create({
     },
     scoreContainer: {
         position: 'absolute',
-        bottom: 700, // Movido mais para baixo
+        top: 12,
         left: 0,
         right: 0,
         paddingHorizontal: 16,
@@ -154,7 +154,7 @@ export const styles = StyleSheet.create({
     },
     chatContainerWrapper: {
         position: 'absolute',
-        bottom: BOTTOM_NAV_HEIGHT + 10,
+        bottom: BOTTOM_NAV + 10,
         left: 0,
         right: 0,
         width: '100%',

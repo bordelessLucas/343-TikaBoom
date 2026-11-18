@@ -4,19 +4,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '../../routes/NavigationContext';
 import { styles } from './Profile.styles';
-import { auth } from '../../lib/firebaseconfig';
+import { auth } from '../../lib/supabase';
 import { authService, UserProfile } from '../../services/authService';
 import { postsService, Post } from '../../services/postsService';
 import { usersService } from '../../services/usersService';
 import { messagesService } from '../../services/messagesService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FollowersModal } from '../../components/FollowersModal/FollowersModal';
+import { PostGridThumb } from '../../components/PostGridThumb/PostGridThumb';
+import { useSafePad } from '../../hooks/useSafePad';
+import { openPostInFeed } from '../../lib/openPost';
 
 const { width } = Dimensions.get('window');
 const videoWidth = (width - 4) / 3;
 
 export const Profile = () => {
     const { navigate } = useNavigation();
+    const safe = useSafePad();
     const [profileData, setProfileData] = useState<UserProfile | null>(null);
     const [userPosts, setUserPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
@@ -38,7 +42,6 @@ export const Profile = () => {
                 return;
             }
 
-            await currentUser.getIdToken(true).catch(() => {});
 
             const viewingUserId = await AsyncStorage.getItem('viewingUserId');
             if (!viewingUserId) {
@@ -103,10 +106,16 @@ export const Profile = () => {
             if (isFollowing) {
                 await usersService.unfollowUser(currentUser.uid, profileData.uid);
                 setIsFollowing(false);
+                setProfileData((prev) =>
+                    prev ? { ...prev, followers: Math.max(0, (prev.followers || 0) - 1) } : prev
+                );
                 Alert.alert('Sucesso', 'Você deixou de seguir este usuário');
             } else {
                 await usersService.followUser(currentUser.uid, profileData.uid);
                 setIsFollowing(true);
+                setProfileData((prev) =>
+                    prev ? { ...prev, followers: (prev.followers || 0) + 1 } : prev
+                );
                 
                 // Criar chat automaticamente ao seguir
                 try {
@@ -158,16 +167,7 @@ export const Profile = () => {
             const errorMessage = error.message || 'Não foi possível abrir o chat';
             
             // Mensagem mais descritiva para erros de permissão
-            if (errorMessage.includes('permission') || errorMessage.includes('Permissão')) {
-                Alert.alert(
-                    'Erro de Permissão',
-                    'Não foi possível criar o chat. Verifique se as regras de segurança do Firestore estão configuradas corretamente para a coleção "chats".\n\n' +
-                    'Certifique-se de que a regra de criação permite:\n' +
-                    'allow create: if request.auth != null && request.auth.uid in request.resource.data.participants;'
-                );
-            } else {
-                Alert.alert('Erro', errorMessage);
-            }
+            Alert.alert('Erro', errorMessage);
         }
     };
 
@@ -176,18 +176,14 @@ export const Profile = () => {
         return (
             <TouchableOpacity 
                 style={styles.videoThumbnail}
-                onPress={() => navigate('Home')}
+                onPress={async () => {
+                    await openPostInFeed(item.id);
+                    navigate('Home');
+                }}
+                activeOpacity={0.85}
             >
                 <View style={styles.thumbnailContainer}>
-                    {item.thumbnailURL ? (
-                        <Image source={{ uri: item.thumbnailURL }} style={styles.thumbnailImage} />
-                    ) : item.mediaType === 'video' ? (
-                        <View style={styles.thumbnailPlaceholder}>
-                            <MaterialIcons name="play-arrow" size={20} color="#FFFFFF" />
-                        </View>
-                    ) : (
-                        <Image source={{ uri: item.mediaURL }} style={styles.thumbnailImage} />
-                    )}
+                    <PostGridThumb post={item} />
                 </View>
                 <View style={styles.videoInfo}>
                     <MaterialIcons name="play-arrow" size={12} color="#FFFFFF" />
@@ -231,7 +227,7 @@ export const Profile = () => {
                 keyboardShouldPersistTaps="handled"
             >
                 {/* Header */}
-                <View style={styles.header}>
+                <View style={[styles.header, { paddingTop: safe.paddingTop }]}>
                     <TouchableOpacity onPress={() => navigate('Home')} style={styles.backButton}>
                         <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
                     </TouchableOpacity>

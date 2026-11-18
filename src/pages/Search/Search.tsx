@@ -5,13 +5,15 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '../../routes/NavigationContext';
 import { postsService, Post } from '../../services/postsService';
 import { usersService, UserProfile } from '../../services/usersService';
-import { auth } from '../../lib/firebaseconfig';
+import { auth } from '../../lib/supabase';
 import { styles } from './Search.styles';
+import { useSafePad } from '../../hooks/useSafePad';
 
 type SearchTab = 'all' | 'users' | 'hashtags' | 'posts';
 
 export const Search = () => {
     const { navigate } = useNavigation();
+    const safe = useSafePad();
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState<SearchTab>('all');
     const [searchResults, setSearchResults] = useState<{
@@ -171,7 +173,7 @@ export const Search = () => {
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
             >
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: safe.paddingTop }]}>
                 <TouchableOpacity onPress={() => navigate('Home')} style={styles.backButton}>
                     <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
                 </TouchableOpacity>

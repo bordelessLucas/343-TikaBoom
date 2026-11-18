@@ -2,11 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, Image, Alert } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Comments } from '../Comments/Comments';
 import { ShareModal } from '../ShareModal/ShareModal';
 import { useNavigation } from '../../routes/NavigationContext';
-import { auth } from '../../lib/firebaseconfig';
+import { auth } from '../../lib/supabase';
 import { postsService } from '../../services/postsService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -30,8 +31,9 @@ interface VideoItemProps {
     shares: number;
     userProfileImage?: string;
     creatorProfileImage?: string;
-    postId?: string; // ID do post no Firebase
-    onView?: () => void; // Callback quando o vídeo é visualizado
+    postId?: string;
+    authorId?: string;
+    onView?: () => void;
 }
 
 const { width, height } = Dimensions.get('window');
@@ -49,9 +51,22 @@ export const VideoItem = ({
     userProfileImage,
     creatorProfileImage,
     postId,
+    authorId,
     onView
 }: VideoItemProps) => {
     const { navigate } = useNavigation();
+    const insets = useSafeAreaInsets();
+    const bottomPad = Math.max(insets.bottom, 8) + 78;
+
+    const openAuthorProfile = () => {
+        if (!authorId) return;
+        const currentUid = auth.currentUser?.uid;
+        if (currentUid && authorId === currentUid) {
+            navigate('MyProfile');
+            return;
+        }
+        navigate('Profile', { userId: authorId });
+    };
     const [isLiked, setIsLiked] = useState(false);
     const [likes, setLikes] = useState(initialLikes);
     const [isSaved, setIsSaved] = useState(false);
@@ -297,9 +312,9 @@ export const VideoItem = ({
             )}
             
             {/* Botões de interação na lateral direita */}
-            <View style={styles.actionsContainer}>
+            <View style={[styles.actionsContainer, { bottom: bottomPad }]}>
                 {/* Botão de perfil do usuário (topo) */}
-                <TouchableOpacity style={styles.actionButton} onPress={() => navigate('Profile')}>
+                <TouchableOpacity style={styles.actionButton} onPress={openAuthorProfile}>
                     <View style={styles.profileImageContainer}>
                         {userProfileImage ? (
                             <Image source={{ uri: userProfileImage }} style={styles.profileImage} />
@@ -352,7 +367,7 @@ export const VideoItem = ({
                 </TouchableOpacity>
 
                 {/* Foto do criador (embaixo) */}
-                <TouchableOpacity style={styles.actionButton} onPress={() => navigate('Profile')}>
+                <TouchableOpacity style={styles.actionButton} onPress={openAuthorProfile}>
                     <View style={styles.profileImageContainer}>
                         {creatorProfileImage ? (
                             <Image source={{ uri: creatorProfileImage }} style={styles.profileImage} />
@@ -368,10 +383,12 @@ export const VideoItem = ({
             {/* Informações do vídeo na parte inferior */}
             <LinearGradient
                 colors={['transparent', 'rgba(0,0,0,0.7)']}
-                style={styles.gradient}
+                style={[styles.gradient, { paddingBottom: bottomPad }]}
             >
                 <View style={styles.infoContainer}>
-                    <Text style={styles.username}>@{username}</Text>
+                    <TouchableOpacity onPress={openAuthorProfile} activeOpacity={0.7}>
+                        <Text style={styles.username}>@{username}</Text>
+                    </TouchableOpacity>
                     <Text style={styles.description}>{description}</Text>
                 </View>
             </LinearGradient>
@@ -389,7 +406,10 @@ export const VideoItem = ({
             <ShareModal
                 visible={shareVisible}
                 onClose={() => setShareVisible(false)}
-                videoId=""
+                postId={postId}
+                mediaUrl={videoUri}
+                title={description}
+                username={username}
             />
         </View>
     );
@@ -407,10 +427,9 @@ const styles = StyleSheet.create({
     },
     actionsContainer: {
         position: 'absolute',
-        right: 15,
-        bottom: 100,
+        right: 12,
         alignItems: 'center',
-        gap: 20,
+        gap: 16,
     },
     actionButton: {
         alignItems: 'center',
@@ -468,11 +487,11 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        height: 200,
+        minHeight: 180,
         justifyContent: 'flex-end',
-        padding: 20,
-        paddingRight: 90, // Espaço para os botões
-        paddingBottom: 100, // Espaço para a bottom navigation
+        paddingHorizontal: 16,
+        paddingTop: 40,
+        paddingRight: 86,
     },
     infoContainer: {
         marginBottom: 10,

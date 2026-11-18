@@ -13,7 +13,7 @@ export type CameraFilter = {
 
 /** Color grades estilo IG */
 export const CAMERA_FILTERS: CameraFilter[] = [
-  { id: 'normal', name: 'Normal', swatch: '#888888', layers: [] },
+  { id: 'normal', name: 'Sem filtro', swatch: '#888888', layers: [] },
   {
     id: 'clarendon',
     name: 'Clarendon',

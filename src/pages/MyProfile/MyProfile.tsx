@@ -5,10 +5,13 @@ import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '../../routes/NavigationContext';
-import { auth } from '../../lib/firebaseconfig';
+import { auth } from '../../lib/supabase';
 import { authService, UserProfile } from '../../services/authService';
 import { postsService, Post } from '../../services/postsService';
 import { styles } from './MyProfile.styles';
+import { useSafePad } from '../../hooks/useSafePad';
+import { PostGridThumb } from '../../components/PostGridThumb/PostGridThumb';
+import { openPostInFeed } from '../../lib/openPost';
 
 const { width } = Dimensions.get('window');
 const videoWidth = (width - 4) / 3;
@@ -17,6 +20,7 @@ type TabType = 'posts' | 'liked' | 'saved';
 
 export const MyProfile = () => {
     const { navigate } = useNavigation();
+    const safe = useSafePad();
     const [isEditing, setIsEditing] = useState(false);
     const [profileData, setProfileData] = useState<UserProfile | null>(null);
     const [userPosts, setUserPosts] = useState<Post[]>([]);
@@ -33,6 +37,13 @@ export const MyProfile = () => {
 
     useEffect(() => {
         loadProfile();
+        (async () => {
+            const openEdit = await AsyncStorage.getItem('@tikaboom_open_profile_edit');
+            if (openEdit === '1') {
+                await AsyncStorage.removeItem('@tikaboom_open_profile_edit');
+                setIsEditing(true);
+            }
+        })();
     }, []);
 
     useEffect(() => {
@@ -79,7 +90,6 @@ export const MyProfile = () => {
                 return;
             }
 
-            await user.getIdToken(true).catch(() => {});
 
             let profile: UserProfile | null = null;
             try {
@@ -173,12 +183,17 @@ export const MyProfile = () => {
                 const user = auth.currentUser;
                 if (!user) return;
 
-                Alert.alert('Enviando...', 'Upload da foto em andamento...');
-                const photoURL = await authService.uploadProfilePhoto(user.uid, result.assets[0].uri);
-                await loadProfile(); // Recarregar perfil
-                Alert.alert('Sucesso!', 'Foto de perfil atualizada!');
+                setLoading(true);
+                try {
+                    await authService.uploadProfilePhoto(user.uid, result.assets[0].uri);
+                    await loadProfile();
+                    Alert.alert('Sucesso!', 'Foto de perfil atualizada!');
+                } finally {
+                    setLoading(false);
+                }
             }
         } catch (error: any) {
+            setLoading(false);
             Alert.alert('Erro', error.message || 'Não foi possível atualizar a foto');
         }
     };
@@ -297,18 +312,14 @@ export const MyProfile = () => {
         return (
             <TouchableOpacity 
                 style={styles.videoThumbnail}
-                onPress={() => navigate('Home')}
+                onPress={async () => {
+                    await openPostInFeed(item.id);
+                    navigate('Home');
+                }}
+                activeOpacity={0.85}
             >
                 <View style={styles.thumbnailContainer}>
-                    {item.thumbnailURL ? (
-                        <Image source={{ uri: item.thumbnailURL }} style={styles.thumbnailImage} />
-                    ) : item.mediaType === 'video' ? (
-                        <View style={styles.thumbnailPlaceholder}>
-                            <MaterialIcons name="play-arrow" size={20} color="#FFFFFF" />
-                        </View>
-                    ) : (
-                        <Image source={{ uri: item.mediaURL }} style={styles.thumbnailImage} />
-                    )}
+                    <PostGridThumb post={item} />
                 </View>
                 <View style={styles.videoInfo}>
                     <MaterialIcons name="play-arrow" size={12} color="#FFFFFF" />
@@ -375,7 +386,7 @@ export const MyProfile = () => {
                 keyboardDismissMode="on-drag"
             >
                 {/* Header */}
-                <View style={styles.header}>
+                <View style={[styles.header, { paddingTop: safe.paddingTop }]}>
                     <TouchableOpacity onPress={() => navigate('Home')} style={styles.backButton}>
                         <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
                     </TouchableOpacity>

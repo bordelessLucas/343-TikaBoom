@@ -5,11 +5,12 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '../../routes/NavigationContext';
 import { styles } from './Messages.styles';
 import { Notifications } from './Notifications';
-import { auth } from '../../lib/firebaseconfig';
+import { auth } from '../../lib/supabase';
 import { messagesService, Chat } from '../../services/messagesService';
 import { usersService, UserProfile } from '../../services/usersService';
 import { authService } from '../../services/authService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafePad } from '../../hooks/useSafePad';
 
 interface ChatWithUser extends Chat {
     otherUser?: {
@@ -21,6 +22,7 @@ interface ChatWithUser extends Chat {
 
 export const Messages = () => {
     const { navigate } = useNavigation();
+    const safe = useSafePad();
     const [activeTab, setActiveTab] = useState<'messages' | 'notifications'>('messages');
     const [chats, setChats] = useState<ChatWithUser[]>([]);
     const [followingUsers, setFollowingUsers] = useState<UserProfile[]>([]);
@@ -78,7 +80,7 @@ export const Messages = () => {
             console.error('❌ Erro ao carregar chats:', error);
             // Se for erro de permissão, mostrar mensagem mais clara
             if (error.message?.includes('permission') || error.code === 'permission-denied') {
-                console.error('💡 Configure as regras de segurança do Firestore para permitir leitura de chats');
+                console.error('Não foi possível carregar chats');
             }
             setChats([]);
         } finally {
@@ -173,7 +175,7 @@ export const Messages = () => {
             colors={['#28002b', '#1a1a2e', '#0a0a1a']}
             style={styles.container}
         >
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: safe.paddingTop }]}>
                 <TouchableOpacity onPress={() => navigate('Home')} style={styles.backButton}>
                     <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
                 </TouchableOpacity>

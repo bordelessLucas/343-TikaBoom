@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '../../routes/NavigationContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { styles } from './BottomNavigation.styles';
-import { auth } from '../../lib/firebaseconfig';
+import { auth } from '../../lib/supabase';
 import { messagesService, Chat } from '../../services/messagesService';
 
 export const BottomNavigation = () => {
     const { currentScreen, navigate } = useNavigation();
+    const insets = useSafeAreaInsets();
     const [unreadCount, setUnreadCount] = useState(0);
 
     const navItems = [
@@ -57,7 +59,7 @@ export const BottomNavigation = () => {
         <View style={styles.container}>
             <LinearGradient
                 colors={['rgba(0,0,0,0.95)', 'rgba(0,0,0,0.98)']}
-                style={styles.gradient}
+                style={[styles.gradient, { paddingBottom: Math.max(insets.bottom, 8) }]}
             >
                 {navItems.map((item) => {
                     const isActive = currentScreen === item.screen;

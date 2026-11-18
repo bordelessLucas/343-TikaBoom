@@ -4,12 +4,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '../../routes/NavigationContext';
 import { styles } from './GroupChat.styles';
-import { auth } from '../../lib/firebaseconfig';
+import { auth } from '../../lib/supabase';
 import { groupsService, Group, GroupMessage } from '../../services/groupsService';
 import { authService } from '../../services/authService';
+import { useSafePad } from '../../hooks/useSafePad';
 
 export const GroupChat = () => {
     const { navigate } = useNavigation();
+    const safe = useSafePad();
     const [group, setGroup] = useState<Group | null>(null);
     const [messages, setMessages] = useState<GroupMessage[]>([]);
     const [newMessage, setNewMessage] = useState('');
@@ -93,7 +95,7 @@ export const GroupChat = () => {
             colors={['#28002b', '#1a1a2e', '#0a0a1a']}
             style={styles.container}
         >
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: safe.paddingTop }]}>
                 <TouchableOpacity onPress={() => navigate('Groups')} style={styles.backButton}>
                     <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
                 </TouchableOpacity>

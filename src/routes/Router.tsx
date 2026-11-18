@@ -17,6 +17,7 @@ import { StoriesViewer } from "../pages/StoriesViewer/StoriesViewer";
 import { Groups } from "../pages/Groups/Groups";
 import { GroupChat } from "../pages/GroupChat/GroupChat";
 import { LiveWatch } from "../pages/LiveWatch/LiveWatch";
+import { GiftProfile } from "../pages/GiftProfile/GiftProfile";
 import { useNavigation } from "./NavigationContext";
 import { BottomNavigation } from "../components/BottomNavigation/BottomNavigation";
 
@@ -61,6 +62,8 @@ export const Router = () => {
         return <GroupChat />;
       case "LiveWatch":
         return <LiveWatch />;
+      case "GiftProfile":
+        return <GiftProfile />;
       default:
         return <Login />;
     }

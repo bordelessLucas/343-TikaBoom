@@ -1,40 +1,8 @@
-import {
-  collection,
-  doc,
-  setDoc,
-  updateDoc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  serverTimestamp,
-  Timestamp,
-  Unsubscribe,
-  limit,
-} from 'firebase/firestore';
-import { db, auth } from '../lib/firebaseconfig';
+import { supabase, auth } from '../lib/supabase';
+import { mapLive } from '../lib/mappers';
+import type { LiveSession, LiveStatus } from '../types/models';
 
-export type LiveStatus = 'live' | 'ended';
-
-export interface LiveSession {
-  id: string;
-  hostId: string;
-  hostUsername: string;
-  hostDisplayName: string;
-  hostPhotoURL?: string;
-  title: string;
-  status: LiveStatus;
-  /** Nome da sala no provedor (Daily/LiveKit) */
-  roomName: string;
-  /** URL do player (Daily prebuilt / HLS) */
-  roomUrl?: string;
-  viewerCount: number;
-  startedAt: number;
-  endedAt?: number;
-  provider: 'daily' | 'livekit' | 'local';
-}
+export type { LiveSession, LiveStatus };
 
 type CreateLiveInput = {
   title: string;
@@ -46,162 +14,121 @@ type CreateLiveInput = {
   provider?: LiveSession['provider'];
 };
 
-function mapDoc(id: string, data: any): LiveSession {
-  const started =
-    data.startedAt instanceof Timestamp
-      ? data.startedAt.toMillis()
-      : typeof data.startedAt === 'number'
-        ? data.startedAt
-        : Date.now();
-  const ended =
-    data.endedAt instanceof Timestamp
-      ? data.endedAt.toMillis()
-      : typeof data.endedAt === 'number'
-        ? data.endedAt
-        : undefined;
-
-  return {
-    id,
-    hostId: data.hostId,
-    hostUsername: data.hostUsername || 'user',
-    hostDisplayName: data.hostDisplayName || 'Host',
-    hostPhotoURL: data.hostPhotoURL,
-    title: data.title || 'LIVE',
-    status: data.status === 'ended' ? 'ended' : 'live',
-    roomName: data.roomName,
-    roomUrl: data.roomUrl,
-    viewerCount: data.viewerCount || 0,
-    startedAt: started,
-    endedAt: ended,
-    provider: data.provider || 'local',
-  };
-}
-
 export const livesService = {
   async createLive(input: CreateLiveInput): Promise<LiveSession> {
     const user = auth.currentUser;
     if (!user) throw new Error('Faça login para iniciar uma LIVE.');
 
-    const id = `live_${user.uid}_${Date.now()}`;
-    const ref = doc(db, 'lives', id);
-    const payload = {
-      hostId: user.uid,
-      hostUsername: input.hostUsername,
-      hostDisplayName: input.hostDisplayName,
-      hostPhotoURL: input.hostPhotoURL || null,
-      title: input.title.trim() || 'Minha LIVE',
-      status: 'live' as LiveStatus,
-      roomName: input.roomName,
-      roomUrl: input.roomUrl || null,
-      viewerCount: 0,
-      provider: input.provider || 'local',
-      startedAt: serverTimestamp(),
-      endedAt: null,
-      createdAt: serverTimestamp(),
-    };
+    const { data, error } = await supabase
+      .from('lives')
+      .insert({
+        host_id: user.uid,
+        host_username: input.hostUsername,
+        host_display_name: input.hostDisplayName,
+        host_photo_url: input.hostPhotoURL || null,
+        title: input.title.trim() || 'Minha LIVE',
+        status: 'live',
+        room_name: input.roomName,
+        room_url: input.roomUrl || null,
+        viewer_count: 0,
+        provider: input.provider || 'local',
+      })
+      .select('*')
+      .single();
 
-    await setDoc(ref, payload);
-
-    return {
-      id,
-      hostId: user.uid,
-      hostUsername: input.hostUsername,
-      hostDisplayName: input.hostDisplayName,
-      hostPhotoURL: input.hostPhotoURL,
-      title: payload.title,
-      status: 'live',
-      roomName: input.roomName,
-      roomUrl: input.roomUrl,
-      viewerCount: 0,
-      startedAt: Date.now(),
-      provider: input.provider || 'local',
-    };
+    if (error) throw new Error(error.message);
+    return mapLive(data);
   },
 
   async endLive(liveId: string): Promise<void> {
     const user = auth.currentUser;
     if (!user) throw new Error('Não autenticado');
 
-    const ref = doc(db, 'lives', liveId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return;
-    if (snap.data().hostId !== user.uid) {
+    const { data } = await supabase.from('lives').select('host_id').eq('id', liveId).maybeSingle();
+    if (!data) return;
+    if (data.host_id !== user.uid) {
       throw new Error('Só o host pode encerrar a LIVE.');
     }
 
-    await updateDoc(ref, {
-      status: 'ended',
-      endedAt: serverTimestamp(),
-    });
+    const { error } = await supabase
+      .from('lives')
+      .update({ status: 'ended', ended_at: new Date().toISOString() })
+      .eq('id', liveId);
+    if (error) throw new Error(error.message);
   },
 
   async endActiveLivesForHost(hostId: string): Promise<void> {
-    const q = query(
-      collection(db, 'lives'),
-      where('hostId', '==', hostId),
-      where('status', '==', 'live')
-    );
-    const snap = await getDocs(q);
-    await Promise.all(
-      snap.docs.map((d) =>
-        updateDoc(d.ref, { status: 'ended', endedAt: serverTimestamp() })
-      )
-    );
+    await supabase
+      .from('lives')
+      .update({ status: 'ended', ended_at: new Date().toISOString() })
+      .eq('host_id', hostId)
+      .eq('status', 'live');
   },
 
   async getLive(liveId: string): Promise<LiveSession | null> {
-    const snap = await getDoc(doc(db, 'lives', liveId));
-    if (!snap.exists()) return null;
-    return mapDoc(snap.id, snap.data());
+    const { data, error } = await supabase.from('lives').select('*').eq('id', liveId).maybeSingle();
+    if (error) throw new Error(error.message);
+    return data ? mapLive(data) : null;
   },
 
   async listActiveLives(max = 40): Promise<LiveSession[]> {
     try {
-      const q = query(
-        collection(db, 'lives'),
-        where('status', '==', 'live'),
-        orderBy('startedAt', 'desc'),
-        limit(max)
-      );
-      const snap = await getDocs(q);
-      return snap.docs.map((d) => mapDoc(d.id, d.data()));
+      // Encerra LIVEs órfãs (ex.: app fechou sem end) — evita card fantasma no topo
+      const staleBefore = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+      await supabase
+        .from('lives')
+        .update({ status: 'ended', ended_at: new Date().toISOString() })
+        .eq('status', 'live')
+        .lt('started_at', staleBefore);
+
+      const { data, error } = await supabase
+        .from('lives')
+        .select('*')
+        .eq('status', 'live')
+        .order('started_at', { ascending: false })
+        .limit(max);
+      if (error) throw error;
+      return (data || []).map(mapLive);
     } catch (e: any) {
-      // Índice ausente ou regras bloqueando
-      console.warn('listActiveLives fallback:', e?.code || e?.message || e);
-      try {
-        const q = query(collection(db, 'lives'), where('status', '==', 'live'), limit(max));
-        const snap = await getDocs(q);
-        return snap.docs
-          .map((d) => mapDoc(d.id, d.data()))
-          .sort((a, b) => b.startedAt - a.startedAt);
-      } catch {
-        return [];
-      }
+      console.warn('listActiveLives fallback:', e?.message || e);
+      return [];
     }
   },
 
-  subscribeActiveLives(onChange: (lives: LiveSession[]) => void): Unsubscribe {
-    const q = query(collection(db, 'lives'), where('status', '==', 'live'), limit(50));
-    return onSnapshot(
-      q,
-      (snap) => {
-        const lives = snap.docs
-          .map((d) => mapDoc(d.id, d.data()))
-          .sort((a, b) => b.startedAt - a.startedAt);
-        onChange(lives);
-      },
-      (err) => {
-        console.warn('subscribeActiveLives error:', err);
-        onChange([]);
-      }
-    );
+  subscribeActiveLives(onChange: (lives: LiveSession[]) => void): () => void {
+    const reload = async () => {
+      const lives = await this.listActiveLives(50);
+      onChange(lives);
+    };
+
+    const channel = supabase
+      .channel('lives:active')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'lives' },
+        () => {
+          reload();
+        }
+      )
+      .subscribe();
+
+    reload();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   },
 
   async incrementViewers(liveId: string, delta = 1): Promise<void> {
-    const ref = doc(db, 'lives', liveId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return;
-    const current = snap.data().viewerCount || 0;
-    await updateDoc(ref, { viewerCount: Math.max(0, current + delta) });
+    const { data } = await supabase
+      .from('lives')
+      .select('viewer_count')
+      .eq('id', liveId)
+      .maybeSingle();
+    if (!data) return;
+    await supabase
+      .from('lives')
+      .update({ viewer_count: Math.max(0, (data.viewer_count || 0) + delta) })
+      .eq('id', liveId);
   },
 };

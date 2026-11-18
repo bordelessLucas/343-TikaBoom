@@ -4,13 +4,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '../../routes/NavigationContext';
 import { styles } from './Chat.styles';
-import { auth } from '../../lib/firebaseconfig';
+import { auth } from '../../lib/supabase';
 import { messagesService, Message } from '../../services/messagesService';
 import { authService } from '../../services/authService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafePad } from '../../hooks/useSafePad';
 
 export const Chat = () => {
     const { navigate } = useNavigation();
+    const safe = useSafePad();
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const [chatId, setChatId] = useState<string | null>(null);
@@ -170,7 +172,7 @@ export const Chat = () => {
     if (!chatId || !otherUser) {
         return (
             <LinearGradient colors={['#28002b', '#1a1a2e', '#0a0a1a']} style={styles.container}>
-                <View style={styles.header}>
+                <View style={[styles.header, { paddingTop: safe.paddingTop }]}>
                     <TouchableOpacity onPress={() => navigate('Messages')} style={styles.backButton}>
                         <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
                     </TouchableOpacity>
@@ -196,7 +198,7 @@ export const Chat = () => {
                 style={styles.keyboardView}
             >
                 {/* Header */}
-                <View style={styles.header}>
+                <View style={[styles.header, { paddingTop: safe.paddingTop }]}>
                     <TouchableOpacity onPress={() => navigate('Messages')} style={styles.backButton}>
                         <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
                     </TouchableOpacity>

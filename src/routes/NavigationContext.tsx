@@ -7,9 +7,8 @@ import React, {
   ReactNode,
 } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
-import { onAuthStateChanged } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { auth } from "../lib/firebaseconfig";
+import { supabase, setCachedUserFromSession } from "../lib/supabase";
 
 export type ScreenName =
   | "Login"
@@ -31,7 +30,8 @@ export type ScreenName =
   | "StoriesViewer"
   | "Groups"
   | "GroupChat"
-  | "LiveWatch";
+  | "LiveWatch"
+  | "GiftProfile";
 
 interface NavigationContextType {
   currentScreen: ScreenName;
@@ -49,21 +49,37 @@ export const NavigationProvider = ({ children }: { children: ReactNode }) => {
   const bootstrappedRef = useRef(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setCachedUserFromSession(data.session);
       if (!bootstrappedRef.current) {
         bootstrappedRef.current = true;
-        setCurrentScreen(user ? "Home" : "Login");
+        setCurrentScreen(data.session?.user ? "Home" : "Login");
+        setAuthReady(true);
+      }
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCachedUserFromSession(session);
+
+      if (!bootstrappedRef.current) {
+        bootstrappedRef.current = true;
+        setCurrentScreen(session?.user ? "Home" : "Login");
         setAuthReady(true);
         return;
       }
 
-      // Sessão encerrada (logout) → volta ao Login
-      if (!user) {
+      if (!session?.user) {
         setCurrentScreen("Login");
       }
     });
 
-    return unsubscribe;
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const navigate = (screen: ScreenName, params?: any) => {

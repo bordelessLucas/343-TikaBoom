@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TopBar } from '../../components/TopBar/TopBar';
 import { BattleItem } from '../../components/BattleItem/BattleItem';
@@ -22,6 +23,8 @@ import { styles } from './Live.styles';
 const { height } = Dimensions.get('window');
 const LIVE_ID_KEY = '@tikaboom_watching_live_id';
 const LIVE_ROOM_URL_KEY = '@tikaboom_watching_live_url';
+const LIVE_ROOM_NAME_KEY = '@tikaboom_watching_live_room';
+const LIVE_PROVIDER_KEY = '@tikaboom_watching_live_provider';
 
 interface ChatMessage {
     id: string;
@@ -61,6 +64,9 @@ const mockBattles: Battle[] = [
 
 export const Live = () => {
     const { currentScreen, navigate } = useNavigation();
+    const insets = useSafeAreaInsets();
+    // TopBar é absolute (tabs + submenu Lives/Batalhas) — lista precisa começar abaixo
+    const topBarOffset = Math.max(insets.top, 8) + 108;
     const [activeTab, setActiveTab] = useState<'forYou' | 'lives'>('lives');
     const [liveMode, setLiveMode] = useState<'lives' | 'battle'>('lives');
     const [battles, setBattles] = useState<Battle[]>(mockBattles);
@@ -82,7 +88,7 @@ export const Live = () => {
         try {
             fromFs = await livesService.listActiveLives();
         } catch (e) {
-            console.warn('Firestore lives bloqueado, tentando Daily…', e);
+            console.warn('Lives no banco indisponíveis, tentando Daily…', e);
         }
 
         let fromDaily: LiveSession[] = [];
@@ -122,7 +128,6 @@ export const Live = () => {
                 setActiveLives(lives);
                 setLoadingLives(false);
             } else {
-                // Se Firestore vazio/bloqueado, recarrega via Daily
                 loadLives();
             }
         });
@@ -140,6 +145,12 @@ export const Live = () => {
         } else {
             await AsyncStorage.removeItem(LIVE_ROOM_URL_KEY);
         }
+        if (live.roomName) {
+            await AsyncStorage.setItem(LIVE_ROOM_NAME_KEY, live.roomName);
+        } else {
+            await AsyncStorage.removeItem(LIVE_ROOM_NAME_KEY);
+        }
+        await AsyncStorage.setItem(LIVE_PROVIDER_KEY, live.provider || 'livekit');
         navigate('LiveWatch');
     };
 
@@ -174,21 +185,25 @@ export const Live = () => {
         );
     };
 
+    const battlePageHeight = Math.max(height - topBarOffset - 90, 500);
+
     const renderBattle = ({ item, index }: { item: Battle; index: number }) => (
-        <BattleItem
-            videoA={item.videoA}
-            videoB={item.videoB}
-            streamerA={item.streamerA}
-            streamerB={item.streamerB}
-            scoreA={item.scoreA}
-            scoreB={item.scoreB}
-            timer={item.timer}
-            isActive={index === currentIndex}
-            chatMessages={item.chatMessages}
-            onSendMessage={(message) => handleSendMessage(item.id, message)}
-            onChatDragStart={() => setIsChatDragging(true)}
-            onChatDragEnd={() => setIsChatDragging(false)}
-        />
+        <View style={{ width: '100%', height: battlePageHeight }}>
+            <BattleItem
+                videoA={item.videoA}
+                videoB={item.videoB}
+                streamerA={item.streamerA}
+                streamerB={item.streamerB}
+                scoreA={item.scoreA}
+                scoreB={item.scoreB}
+                timer={item.timer}
+                isActive={index === currentIndex}
+                chatMessages={item.chatMessages}
+                onSendMessage={(message) => handleSendMessage(item.id, message)}
+                onChatDragStart={() => setIsChatDragging(true)}
+                onChatDragEnd={() => setIsChatDragging(false)}
+            />
+        </View>
     );
 
     const renderLiveCard = ({ item }: { item: LiveSession }) => (
@@ -215,7 +230,7 @@ export const Live = () => {
                     {item.hostDisplayName} · @{item.hostUsername}
                 </Text>
                 <Text style={liveListStyles.meta}>
-                    {item.viewerCount} assistindo · {item.provider === 'daily' ? 'Daily' : 'Local'}
+                    {item.viewerCount} assistindo · {item.provider === 'livekit' ? 'LiveKit' : item.provider === 'daily' ? 'Daily' : 'Local'}
                 </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
@@ -238,11 +253,11 @@ export const Live = () => {
 
             {liveMode === 'lives' ? (
                 loadingLives ? (
-                    <View style={liveListStyles.empty}>
+                    <View style={[liveListStyles.empty, { paddingTop: topBarOffset }]}>
                         <ActivityIndicator color="#C0F93C" size="large" />
                     </View>
                 ) : activeLives.length === 0 ? (
-                    <View style={liveListStyles.empty}>
+                    <View style={[liveListStyles.empty, { paddingTop: topBarOffset }]}>
                         <Ionicons name="radio-outline" size={56} color="rgba(255,255,255,0.35)" />
                         <Text style={liveListStyles.emptyTitle}>Nenhuma LIVE no momento</Text>
                         <Text style={liveListStyles.emptySub}>
@@ -260,36 +275,42 @@ export const Live = () => {
                         data={activeLives}
                         keyExtractor={(item) => item.id}
                         renderItem={renderLiveCard}
-                        contentContainerStyle={liveListStyles.list}
+                        contentContainerStyle={[
+                            liveListStyles.list,
+                            { paddingTop: topBarOffset, paddingBottom: 100 + insets.bottom },
+                        ]}
                         refreshControl={
                             <RefreshControl
                                 refreshing={loadingLives}
                                 onRefresh={loadLives}
                                 tintColor="#C0F93C"
+                                progressViewOffset={topBarOffset}
                             />
                         }
                     />
                 )
             ) : (
-                <FlatList
-                    ref={flatListRef}
-                    data={battles}
-                    renderItem={renderBattle}
-                    keyExtractor={(item) => item.id}
-                    pagingEnabled
-                    showsVerticalScrollIndicator={false}
-                    snapToInterval={height}
-                    snapToAlignment="start"
-                    decelerationRate="fast"
-                    scrollEnabled={!isChatDragging}
-                    onViewableItemsChanged={onViewableItemsChanged}
-                    viewabilityConfig={viewabilityConfig}
-                    getItemLayout={(_, index) => ({
-                        length: height,
-                        offset: height * index,
-                        index,
-                    })}
-                />
+                <View style={{ flex: 1, paddingTop: topBarOffset }}>
+                    <FlatList
+                        ref={flatListRef}
+                        data={battles}
+                        renderItem={renderBattle}
+                        keyExtractor={(item) => item.id}
+                        pagingEnabled
+                        showsVerticalScrollIndicator={false}
+                        snapToInterval={battlePageHeight}
+                        snapToAlignment="start"
+                        decelerationRate="fast"
+                        scrollEnabled={!isChatDragging}
+                        onViewableItemsChanged={onViewableItemsChanged}
+                        viewabilityConfig={viewabilityConfig}
+                        getItemLayout={(_, index) => ({
+                            length: battlePageHeight,
+                            offset: battlePageHeight * index,
+                            index,
+                        })}
+                    />
+                </View>
             )}
         </LinearGradient>
     );

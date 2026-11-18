@@ -19,7 +19,7 @@ import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { MaterialIcons, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { auth } from '../../lib/firebaseconfig';
+import { auth } from '../../lib/supabase';
 import { postsService } from '../../services/postsService';
 import { authService } from '../../services/authService';
 import { useNavigation } from '../../routes/NavigationContext';
@@ -33,6 +33,7 @@ import {
     DEFAULT_BEAUTY,
     BeautyConfig,
     FaceEffectId,
+    FACE_EFFECTS,
 } from '../../lib/cameraFilters';
 import {
     isDeepArConfigured,
@@ -41,13 +42,14 @@ import {
 } from '../../services/deepArEffects';
 import { livesService } from '../../services/livesService';
 import {
-    isDailyConfigured,
-    createDailyRoom,
-    deleteDailyRoom,
-    buildDailyEmbedUrl,
-} from '../../services/dailyService';
+    prepareHostLiveRoom,
+    cleanupHostLiveRoom,
+    isAnyLiveProviderConfigured,
+    LiveProviderName,
+} from '../../services/liveProvider';
 import { LiveRoomWebView } from '../../components/LiveRoom/LiveRoomWebView';
 import { styles } from './CreateVideo.styles';
+import { useSafePad } from '../../hooks/useSafePad';
 
 /** Preview de foto ou vídeo (local) */
 function MediaPreview({
@@ -103,6 +105,8 @@ type TimerDelay = 0 | 3 | 5 | 10;
 type VideoDuration = 15 | 60 | 600; // 15s, 60s, 10min (600s)
 type CaptureMode = 'video' | 'photo';
 
+type CameraPanel = 'filters' | 'beauty' | 'effects' | 'settings' | null;
+
 interface CapturedMedia {
     id: string;
     uri: string;
@@ -136,11 +140,13 @@ const STORAGE_KEY = '@tikaboom_captured_media';
 const POSTS_STORAGE_KEY = '@tikaboom_posts';
 
 export const CreateVideo = () => {
-    const { navigate } = useNavigation();
+    const { navigate, currentScreen } = useNavigation();
+    const safe = useSafePad(8, 8);
     const cameraRef = useRef<any>(null);
     const recordingPromiseRef = useRef<Promise<any> | null>(null);
-    const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const recordingTimeRef = useRef<number>(0);
+    const isRecordingRef = useRef(false);
     
     const [permission, requestPermission] = useCameraPermissions();
     const [facing, setFacing] = useState<CameraType>('back');
@@ -158,23 +164,24 @@ export const CreateVideo = () => {
     const [isPublishing, setIsPublishing] = useState(false);
     const [timerDelay, setTimerDelay] = useState<TimerDelay>(0);
     const [countdown, setCountdown] = useState<number | null>(null);
-    const [sideExpanded, setSideExpanded] = useState(true);
     const [beautyOn, setBeautyOn] = useState(false);
     const [mirrorOn, setMirrorOn] = useState(false);
     const [filterId, setFilterId] = useState('normal');
     const [beautyConfig, setBeautyConfig] = useState<BeautyConfig>(DEFAULT_BEAUTY);
     const [faceEffect, setFaceEffect] = useState<FaceEffectId>('none');
     const [deepArEffectId, setDeepArEffectId] = useState<DeepArEffectId>('none');
-    const [livePanel, setLivePanel] = useState<'filters' | 'beauty' | 'effects' | 'settings' | null>(null);
+    const [livePanel, setLivePanel] = useState<CameraPanel>(null);
+    const [createPanel, setCreatePanel] = useState<CameraPanel>(null);
     const [deepArFailed, setDeepArFailed] = useState(false);
     const deepArEnabled = isDeepArConfigured() && !deepArFailed;
     const [isLiveOn, setIsLiveOn] = useState(false);
     const [liveSeconds, setLiveSeconds] = useState(0);
     const [liveSource, setLiveSource] = useState<'camera' | 'game'>('camera');
     const [favoriteLive, setFavoriteLive] = useState(false);
-    const [showCreateFilters, setShowCreateFilters] = useState(false);
     const [activeLiveId, setActiveLiveId] = useState<string | null>(null);
     const [liveRoomUrl, setLiveRoomUrl] = useState<string | null>(null);
+    const [liveProvider, setLiveProvider] = useState<LiveProviderName>('local');
+    const [liveRoomName, setLiveRoomName] = useState<string | null>(null);
     const [liveStarting, setLiveStarting] = useState(false);
     const [deepArRemountKey, setDeepArRemountKey] = useState(0);
     const liveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -199,6 +206,15 @@ export const CreateVideo = () => {
         loadCapturedMedia();
         loadPosts();
     }, []);
+
+    // Ao entrar na tela, começa sempre na câmera limpa (evita aba/painel preso)
+    useEffect(() => {
+        if (currentScreen === 'CreateVideo') {
+            setCreateMode('create');
+            setCreatePanel(null);
+            setLivePanel(null);
+        }
+    }, [currentScreen]);
 
     useEffect(() => {
         if (permission && !permission.granted && permission.canAskAgain) {
@@ -235,28 +251,47 @@ export const CreateVideo = () => {
         };
     }, [isLiveOn]);
 
-    const toggleLivePanel = (panel: 'filters' | 'beauty' | 'effects' | 'settings') => {
+    const openLiveMode = () => {
+        if (isRecordingRef.current) {
+            Alert.alert('Gravação', 'Pare a gravação antes de ir para a LIVE.');
+            return;
+        }
+        setCreatePanel(null);
+        setLivePanel(null);
+        setDeepArFailed(false);
+        setDeepArRemountKey((k) => k + 1);
+        setCreateMode('live');
+    };
+
+    const toggleCreatePanel = (panel: Exclude<CameraPanel, null>) => {
+        setCreatePanel((cur) => (cur === panel ? null : panel));
+    };
+
+    const toggleLivePanel = (panel: Exclude<CameraPanel, null>) => {
         setLivePanel((prev) => (prev === panel ? null : panel));
     };
 
     const toggleLiveStream = async () => {
         if (isLiveOn) {
             try {
-                if (activeLiveId && !activeLiveId.startsWith('daily_')) {
+                if (activeLiveId && !activeLiveId.startsWith('daily_') && !activeLiveId.startsWith('lk_')) {
                     await livesService.endLive(activeLiveId).catch(() => {});
+                } else if (activeLiveId) {
+                    // fallback local id — tenta encerrar por room se existir no banco
+                    await livesService.endActiveLivesForHost(auth.currentUser?.uid || '').catch(() => {});
                 }
-                if (liveRoomUrl) {
-                    const roomName = liveRoomUrl.split('/').pop()?.split('?')[0];
-                    if (roomName) deleteDailyRoom(roomName).catch(() => {});
+                if (liveRoomName) {
+                    await cleanupHostLiveRoom(liveProvider, liveRoomName);
                 }
-                await AsyncStorage.removeItem('@tikaboom_active_daily_room');
+                await AsyncStorage.removeItem('@tikaboom_active_live_room');
             } catch (e: any) {
                 console.warn('Erro ao encerrar LIVE:', e?.message || e);
             }
             setIsLiveOn(false);
             setActiveLiveId(null);
             setLiveRoomUrl(null);
-            // Volta os efeitos AR (DeepAR) após sair da sala Daily
+            setLiveRoomName(null);
+            setLiveProvider('local');
             setDeepArFailed(false);
             setDeepArRemountKey((k) => k + 1);
             Alert.alert('LIVE', 'Transmissão encerrada. Efeitos AR de volta.');
@@ -277,9 +312,13 @@ export const CreateVideo = () => {
 
         try {
             setLiveStarting(true);
-            await user.getIdToken(true).catch(() => {});
 
-            // Encerra lives antigas do mesmo host (ignora erro de regras)
+            if (!isAnyLiveProviderConfigured()) {
+                throw new Error(
+                    'Configure EXPO_PUBLIC_LIVEKIT_URL (recomendado) ou EXPO_PUBLIC_DAILY_API_KEY no .env.'
+                );
+            }
+
             await livesService.endActiveLivesForHost(user.uid).catch(() => {});
 
             let profile = null;
@@ -297,43 +336,36 @@ export const CreateVideo = () => {
             const title = (liveTitle || '').trim() || `LIVE de ${hostDisplayName}`;
             const roomName = `tb_${user.uid.slice(0, 8)}_${Date.now().toString(36)}`;
 
-            let roomUrl: string | undefined;
-            let provider: 'daily' | 'local' = 'local';
+            const prepared = await prepareHostLiveRoom({
+                roomName,
+                displayName: hostDisplayName,
+            });
 
-            if (!isDailyConfigured()) {
-                throw new Error(
-                    'Configure EXPO_PUBLIC_DAILY_API_KEY no .env para transmitir LIVE real.'
-                );
-            }
-
-            const room = await createDailyRoom(roomName);
-            roomUrl = room.url;
-            provider = 'daily';
-
-            let sessionId = `daily_${roomName}`;
+            let sessionId = `${prepared.provider === 'livekit' ? 'lk' : 'daily'}_${roomName}`;
             try {
                 const session = await livesService.createLive({
                     title,
                     hostUsername,
                     hostDisplayName,
                     hostPhotoURL: profile?.photoURL,
-                    roomName,
-                    roomUrl,
-                    provider,
+                    roomName: prepared.roomName,
+                    roomUrl: prepared.roomUrl,
+                    provider: prepared.provider,
                 });
                 sessionId = session.id;
             } catch (fsErr: any) {
-                // Firestore bloqueado → segue só com Daily (lista via API Daily)
                 console.warn(
-                    'Firestore indisponível p/ LIVE, usando só Daily:',
-                    fsErr?.code || fsErr?.message
+                    'Lives no banco indisponíveis, seguindo só com o provedor:',
+                    fsErr?.message
                 );
                 await AsyncStorage.setItem(
-                    '@tikaboom_active_daily_room',
+                    '@tikaboom_active_live_room',
                     JSON.stringify({
                         id: sessionId,
-                        roomName,
-                        roomUrl,
+                        roomName: prepared.roomName,
+                        roomUrl: prepared.roomUrl,
+                        embedUrl: prepared.embedUrl,
+                        provider: prepared.provider,
                         title,
                         hostUsername,
                         hostDisplayName,
@@ -343,7 +375,9 @@ export const CreateVideo = () => {
             }
 
             setActiveLiveId(sessionId);
-            setLiveRoomUrl(buildDailyEmbedUrl(roomUrl, hostDisplayName, true));
+            setLiveProvider(prepared.provider);
+            setLiveRoomName(prepared.roomName);
+            setLiveRoomUrl(prepared.embedUrl);
             setFacing('front');
             setIsLiveOn(true);
             setLivePanel(null);
@@ -357,29 +391,23 @@ export const CreateVideo = () => {
 
     // Função para parar gravação
     const stopRecordingHandler = async () => {
-        if (!isRecording || !cameraRef.current) {
-            console.log('⚠️ Não há gravação ativa para parar');
+        if (!isRecordingRef.current || !cameraRef.current) {
             return;
         }
-        
+
         try {
-            console.log('🛑 Parando gravação...');
-            
-            // Chamar stopRecording no ref da câmera
-            // Isso faz com que a Promise do recordAsync resolva
             if (cameraRef.current.stopRecording) {
                 cameraRef.current.stopRecording();
             } else {
-                console.error('❌ stopRecording não está disponível no cameraRef');
+                isRecordingRef.current = false;
                 setIsRecording(false);
                 recordingPromiseRef.current = null;
             }
-            
         } catch (error: any) {
-            console.error('❌ Erro ao parar gravação:', error);
+            console.error('Erro ao parar gravação:', error);
+            isRecordingRef.current = false;
             setIsRecording(false);
             recordingPromiseRef.current = null;
-            Alert.alert('Erro', 'Erro ao parar a gravação');
         }
     };
 
@@ -523,8 +551,14 @@ export const CreateVideo = () => {
 
         try {
             setIsPublishing(true);
+
+            const { refreshAuthUser } = await import('../../lib/supabase');
+            await refreshAuthUser();
+            if (!auth.currentUser) {
+                throw new Error('Sessão expirada. Faça login novamente.');
+            }
             
-            // Garantir perfil no Firestore antes de publicar
+            // Garantir perfil no Supabase antes de publicar
             await authService.ensureUserProfile(user.uid, user.email || '', user.displayName);
             let userProfile = await authService.getUserProfile(user.uid);
             if (!userProfile) {
@@ -544,7 +578,7 @@ export const CreateVideo = () => {
                 };
             }
 
-            // Upload da mídia para Firebase Storage
+            // Upload da mídia para Supabase Storage
             const { mediaURL, thumbnailURL } = await postsService.uploadMedia(
                 user.uid,
                 mediaToPublish.uri,
@@ -557,7 +591,7 @@ export const CreateVideo = () => {
                 .filter(tag => tag.startsWith('#'))
                 .map(tag => tag.trim().toLowerCase());
 
-            // Criar post no Firestore
+            // Criar post no Supabase
             const postId = await postsService.createPost({
                 authorId: user.uid,
                 authorUsername: userProfile.username,
@@ -603,7 +637,7 @@ export const CreateVideo = () => {
             setPostDescription('');
             setPostHashtags('');
             
-            console.log('✅ Post publicado no Firebase:', postId);
+            console.log('✅ Post publicado no Supabase:', postId);
             // Vai direto ao feed para o usuário ver o post
             navigate('Home');
         } catch (error: any) {
@@ -636,9 +670,9 @@ export const CreateVideo = () => {
     }
 
     const toggleCameraFacing = () => {
-        setCameraReady(false);
+        if (isRecordingRef.current) return;
         setTorchOn(false);
-        setFacing(current => (current === 'back' ? 'front' : 'back'));
+        setFacing((current) => (current === 'back' ? 'front' : 'back'));
     };
 
     const toggleTorch = () => {
@@ -696,37 +730,33 @@ export const CreateVideo = () => {
     };
 
     const startRecording = async () => {
-        if (!cameraRef.current || isRecording) {
-            console.log('⚠️ Não é possível iniciar gravação:', { 
-                hasCamera: !!cameraRef.current, 
-                isRecording 
-            });
+        if (!cameraRef.current || isRecordingRef.current) {
             return;
         }
-        
+        if (!cameraReady) {
+            Alert.alert('Câmera', 'Aguarde a câmera ficar pronta e tente de novo.');
+            return;
+        }
+
         try {
-            console.log('🎥 Iniciando gravação de vídeo...');
-            
-            // Iniciar gravação - recordAsync retorna uma Promise que resolve quando stopRecording é chamado
-            const recordingPromise = cameraRef.current.recordAsync({
-                maxDuration: duration,
-                quality: '720p',
-            });
-            
-            // Armazenar a Promise em um ref para poder parar depois
-            recordingPromiseRef.current = recordingPromise;
+            isRecordingRef.current = true;
             setIsRecording(true);
             setRecordingTime(0);
-            
-            // Aguardar a Promise resolver (isso acontece quando stopRecording é chamado)
+            recordingTimeRef.current = 0;
+
+            // Pequena pausa para o estado estabilizar antes do recordAsync
+            await new Promise((r) => setTimeout(r, 50));
+            if (!cameraRef.current || !isRecordingRef.current) return;
+
+            const recordingPromise = cameraRef.current.recordAsync({
+                maxDuration: duration,
+            });
+            recordingPromiseRef.current = recordingPromise;
+
             const video = await recordingPromise;
-            
-            // Capturar o tempo de gravação do ref (sempre atualizado)
             const finalDuration = recordingTimeRef.current || 1;
-            
-            console.log('✅ Vídeo gravado com sucesso:', video?.uri, `Duração: ${finalDuration}s`);
-            
-            if (video && video.uri) {
+
+            if (video?.uri) {
                 const mediaData: CapturedMedia = {
                     id: `video_${Date.now()}`,
                     uri: video.uri,
@@ -734,31 +764,32 @@ export const CreateVideo = () => {
                     timestamp: Date.now(),
                     duration: finalDuration,
                 };
-                
+
                 const saved = await saveCapturedMedia(mediaData);
                 if (saved) {
-                    // Abrir preview para revisar o vídeo antes de publicar
                     setSelectedMedia(mediaData);
                 } else {
                     Alert.alert('Aviso', 'Vídeo gravado mas não foi possível salvar');
                 }
             } else {
-                console.warn('⚠️ Vídeo gravado mas sem URI válida');
                 Alert.alert('Aviso', 'Vídeo gravado mas não foi possível obter o arquivo');
             }
-            
         } catch (error: any) {
-            console.error('❌ Erro ao gravar vídeo:', error);
-            const errorMessage = error?.message || 'Erro desconhecido';
-            
-            // Ignorar erros de cancelamento de gravação
-            if (!errorMessage.includes('recording') && !errorMessage.includes('cancel')) {
+            const errorMessage = String(error?.message || error || '');
+            const ignored =
+                /unmounted|cancel|stopped|recording/i.test(errorMessage);
+            if (!ignored) {
+                console.error('Erro ao gravar vídeo:', error);
                 Alert.alert('Erro', `Erro ao gravar vídeo: ${errorMessage}`);
+            } else {
+                console.warn('Gravação interrompida:', errorMessage);
             }
         } finally {
+            isRecordingRef.current = false;
             setIsRecording(false);
             recordingPromiseRef.current = null;
             setRecordingTime(0);
+            recordingTimeRef.current = 0;
         }
     };
 
@@ -802,16 +833,63 @@ export const CreateVideo = () => {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // LIVE — rosto limpo no centro; TODOS os controles só embaixo
+    const applyFaceEffect = (id: FaceEffectId) => {
+        setFaceEffect(id);
+        setDeepArEffectId(mapFaceEffectToDeepAr(id));
+        if (id === 'beauty' || id === 'doll' || id === 'anime' || id === 'flower') {
+            setBeautyOn(true);
+        }
+        if (id === 'none') {
+            setBeautyOn(false);
+        }
+    };
+
+    const clearAllFilters = () => {
+        setFilterId('normal');
+        setFaceEffect('none');
+        setDeepArEffectId('none');
+        setBeautyOn(false);
+        setCreatePanel(null);
+        setLivePanel(null);
+    };
+
+    const exitCamera = async () => {
+        setCreatePanel(null);
+        setLivePanel(null);
+        if (isLiveOn) {
+            try {
+                if (activeLiveId && !activeLiveId.startsWith('daily_') && !activeLiveId.startsWith('lk_')) {
+                    await livesService.endLive(activeLiveId).catch(() => {});
+                } else {
+                    await livesService.endActiveLivesForHost(auth.currentUser?.uid || '').catch(() => {});
+                }
+                if (liveRoomName) {
+                    await cleanupHostLiveRoom(liveProvider, liveRoomName);
+                }
+                await AsyncStorage.removeItem('@tikaboom_active_live_room');
+            } catch {
+                // ignore
+            }
+            setIsLiveOn(false);
+            setActiveLiveId(null);
+            setLiveRoomUrl(null);
+            setLiveRoomName(null);
+        }
+        setCreateMode('create');
+        navigate('Home');
+    };
+
+    // LIVE — mesmo layout limpo da câmera (sem overlays no meio)
     const renderLiveScreen = () => {
-        const liveTop = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 8 : 54;
+        const liveTop = safe.paddingTop;
+        const liveBottom = Math.max(safe.insets.bottom, 10);
         const useDeepAr = deepArEnabled;
 
         if (!cameraGranted) {
             return (
                 <View style={[styles.liveContainer, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
                     <Text style={{ color: '#fff', textAlign: 'center', marginBottom: 16 }}>
-                        Precisamos da câmera para a LIVE com filtros.
+                        Precisamos da câmera para a LIVE.
                     </Text>
                     <TouchableOpacity style={styles.liveStartButton} onPress={() => requestPermission()}>
                         <Text style={styles.liveStartButtonText}>Permitir câmera</Text>
@@ -824,7 +902,6 @@ export const CreateVideo = () => {
             <View style={styles.liveContainer}>
                 <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-                {/* Com Daily ativo + LIVE ligada → stream real via WebView */}
                 {isLiveOn && liveRoomUrl ? (
                     <LiveRoomWebView roomUrl={liveRoomUrl} style={StyleSheet.absoluteFillObject} />
                 ) : useDeepAr ? (
@@ -843,183 +920,124 @@ export const CreateVideo = () => {
                         }}
                     />
                 ) : (
-                    <>
-                        <CameraView
-                            key={`live-cam-${facing}`}
-                            style={StyleSheet.absoluteFill}
-                            facing={facing}
-                            mode="video"
-                            mute={false}
-                            enableTorch={torchOn && facing === 'back'}
-                            mirror={mirrorOn || facing === 'front'}
-                            ref={cameraRef}
-                            onCameraReady={() => setCameraReady(true)}
-                        />
-                        {(filterId !== 'normal' || beautyOn || faceEffect !== 'none') && (
-                            <FilterOverlay
-                                filterId={filterId}
-                                beautyOn={beautyOn}
-                                beauty={beautyConfig}
-                                faceEffect={faceEffect}
-                                facing={facing}
-                            />
-                        )}
-                    </>
+                    <CameraView
+                        style={StyleSheet.absoluteFill}
+                        facing={facing}
+                        mode="video"
+                        mute={false}
+                        enableTorch={torchOn && facing === 'back'}
+                        mirror={mirrorOn || facing === 'front'}
+                        ref={cameraRef}
+                        onCameraReady={() => setCameraReady(true)}
+                    />
                 )}
 
-                <View style={styles.liveOverlay} pointerEvents="box-none">
-                    {/* TOPO: só fechar + status — zero ícones no meio do rosto */}
-                    <View style={[styles.liveTopBar, { paddingTop: liveTop }]} pointerEvents="box-none">
-                        <TouchableOpacity
-                            onPress={() => {
-                                // Se um painel está aberto, o X só fecha o painel (não sai da LIVE)
-                                if (livePanel) {
-                                    setLivePanel(null);
-                                    return;
-                                }
-                                setIsLiveOn(false);
-                                navigate('Home');
-                            }}
-                            style={styles.liveCloseButton}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        >
-                            <Ionicons name="close" size={28} color="#FFFFFF" />
-                        </TouchableOpacity>
+                {!isLiveOn || !liveRoomUrl ? (
+                    <FilterOverlay
+                        filterId={filterId}
+                        beautyOn={beautyOn}
+                        beauty={beautyConfig}
+                        faceEffect={useDeepAr ? 'none' : faceEffect}
+                        facing={facing}
+                        interactive={false}
+                    />
+                ) : null}
 
+                {/* Chrome por cima da câmera nativa — sempre visível */}
+                <View style={styles.floatingChrome} pointerEvents="box-none">
+                    <View style={[styles.topChrome, { paddingTop: liveTop }]}>
+                        <TouchableOpacity onPress={exitCamera} style={styles.backButton}>
+                            <Ionicons name="arrow-back" size={26} color="#FFFFFF" />
+                        </TouchableOpacity>
                         {isLiveOn ? (
                             <View style={styles.liveRecDot}>
                                 <Text style={styles.liveRecDotText}>AO VIVO · {formatTime(liveSeconds)}</Text>
                             </View>
                         ) : (
-                            <View style={{ flex: 1 }} />
+                            <Text style={styles.liveHeaderTitle}>LIVE</Text>
                         )}
-
-                        <View style={{ width: 40 }} />
+                        <TouchableOpacity
+                            style={styles.refreshButton}
+                            onPress={() => setFacing((c) => (c === 'back' ? 'front' : 'back'))}
+                        >
+                            <Ionicons name="camera-reverse" size={26} color="#FFFFFF" />
+                        </TouchableOpacity>
                     </View>
 
-                    {/* Espaço livre do rosto */}
-                    <View style={{ flex: 1 }} pointerEvents="none" />
-
-                    {/* ========== DOCK INFERIOR (clean) ========== */}
-                    <View style={styles.liveBottomDock} pointerEvents="box-none">
-                        {/* Carrossel de efeitos / filtros / beleza */}
-                        {livePanel === 'effects' && (
-                            useDeepAr ? (
-                                <DeepArEffectsPanel
-                                    selectedId={deepArEffectId}
-                                    onSelect={setDeepArEffectId}
-                                    onClose={() => setLivePanel(null)}
-                                />
-                            ) : (
-                                <EffectsPanel
-                                    selectedId={faceEffect}
+                    {livePanel && (
+                        <View style={[styles.createSheet, { bottom: 200 + liveBottom }]}>
+                            {livePanel === 'effects' &&
+                                (useDeepAr ? (
+                                    <DeepArEffectsPanel
+                                        selectedId={deepArEffectId}
+                                        onSelect={setDeepArEffectId}
+                                        onClose={() => setLivePanel(null)}
+                                    />
+                                ) : (
+                                    <EffectsPanel
+                                        selectedId={faceEffect}
+                                        onSelect={applyFaceEffect}
+                                        onClose={() => setLivePanel(null)}
+                                    />
+                                ))}
+                            {livePanel === 'filters' && (
+                                <FilterPicker
+                                    selectedId={filterId}
                                     onSelect={(id) => {
-                                        setFaceEffect(id);
-                                        setDeepArEffectId(mapFaceEffectToDeepAr(id));
-                                        if (id === 'beauty' || id === 'doll' || id === 'anime' || id === 'flower') {
-                                            setBeautyOn(true);
-                                        }
+                                        setFilterId(id);
+                                        if (id === 'normal') setBeautyOn(false);
+                                        else if (id === 'softglow' || id === 'peach') setBeautyOn(true);
                                     }}
                                     onClose={() => setLivePanel(null)}
                                 />
-                            )
-                        )}
-                        {livePanel === 'filters' && (
-                            <FilterPicker
-                                selectedId={filterId}
-                                onSelect={(id) => {
-                                    setFilterId(id);
-                                    if (id === 'softglow' || id === 'peach') setBeautyOn(true);
-                                }}
-                                onClose={() => setLivePanel(null)}
-                            />
-                        )}
-                        {livePanel === 'beauty' && (
-                            <BeautyPanel
-                                beauty={beautyConfig}
-                                onChange={(next) => {
-                                    setBeautyConfig(next);
-                                    setBeautyOn(true);
-                                }}
-                                onClose={() => setLivePanel(null)}
-                            />
-                        )}
-                        {livePanel === 'settings' && (
-                            <View style={styles.liveSettingsPanel}>
-                                <View style={styles.liveSettingsHeader}>
-                                    <Text style={styles.liveSettingsTitle}>Configurações</Text>
-                                    <TouchableOpacity onPress={() => setLivePanel(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                                        <Text style={styles.livePanelClose}>✕</Text>
-                                    </TouchableOpacity>
-                                </View>
-                                <TextInput
-                                    style={styles.liveSettingsInput}
-                                    value={liveTitle}
-                                    onChangeText={setLiveTitle}
-                                    placeholder="Título da LIVE"
-                                    placeholderTextColor="rgba(255,255,255,0.4)"
-                                />
-                                <TouchableOpacity style={styles.liveSettingsRow} onPress={() => setMirrorOn((v) => !v)}>
-                                    <Text style={styles.liveSettingsLabel}>Espelho</Text>
-                                    <Text style={styles.liveSettingsValue}>{mirrorOn ? 'On' : 'Off'}</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.liveSettingsRow}
-                                    onPress={() => {
-                                        setFilterId('normal');
-                                        setFaceEffect('none');
-                                        setDeepArEffectId('none');
-                                        setBeautyOn(false);
+                            )}
+                            {livePanel === 'beauty' && (
+                                <BeautyPanel
+                                    beauty={beautyConfig}
+                                    onChange={(next) => {
+                                        setBeautyConfig(next);
+                                        setBeautyOn(true);
                                     }}
-                                >
-                                    <Text style={styles.liveSettingsLabel}>Limpar efeitos</Text>
-                                    <Text style={styles.liveSettingsValue}>Reset</Text>
-                                </TouchableOpacity>
-                            </View>
-                        )}
+                                    onClose={() => setLivePanel(null)}
+                                />
+                            )}
+                        </View>
+                    )}
 
-                        {/* Fila de ícones EMBAIXO — não cobre o rosto */}
-                        <View style={styles.liveBottomTools}>
-                            <TouchableOpacity style={styles.liveBottomTool} onPress={() => setFacing((c) => (c === 'back' ? 'front' : 'back'))}>
-                                <Ionicons name="camera-reverse" size={22} color="#FFF" />
-                                <Text style={styles.liveBottomToolText}>Girar</Text>
+                    <View style={[styles.bottomControls, { paddingBottom: liveBottom }]}>
+                        <View style={styles.liveActionRow}>
+                            <TouchableOpacity style={styles.liveActionBtn} onPress={exitCamera}>
+                                <Ionicons name="arrow-back" size={20} color="#FFF" />
+                                <Text style={styles.liveActionText}>Sair</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                                style={styles.liveBottomTool}
-                                onPress={() => {
-                                    setBeautyOn(true);
-                                    toggleLivePanel('beauty');
-                                }}
+                                style={styles.liveActionBtn}
+                                onPress={() => setFacing((c) => (c === 'back' ? 'front' : 'back'))}
                             >
-                                <MaterialIcons name="auto-fix-high" size={22} color={livePanel === 'beauty' ? '#C0F93C' : '#FFF'} />
-                                <Text style={styles.liveBottomToolText}>Beleza</Text>
+                                <Ionicons name="camera-reverse" size={20} color="#FFF" />
+                                <Text style={styles.liveActionText}>Inverter</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                                style={styles.liveBottomTool}
+                                style={[styles.liveActionBtn, livePanel === 'filters' && styles.liveActionBtnActive]}
+                                onPress={() => toggleLivePanel('filters')}
+                            >
+                                <MaterialIcons name="filter-vintage" size={20} color="#FFF" />
+                                <Text style={styles.liveActionText}>Filtros</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.liveActionBtn, livePanel === 'effects' && styles.liveActionBtnActive]}
                                 onPress={() => {
-                                    if (isLiveOn && liveRoomUrl) {
-                                        Alert.alert(
-                                            'Efeitos AR',
-                                            'Durante a LIVE (Daily) a câmera é da sala de transmissão.\n\nEncerrar a LIVE para voltar aos efeitos DeepAR.'
-                                        );
-                                        return;
-                                    }
-                                    // Garante DeepAR de novo se tinha caído
                                     setDeepArFailed(false);
                                     setDeepArRemountKey((k) => k + 1);
                                     toggleLivePanel('effects');
                                 }}
                             >
-                                <MaterialIcons name="auto-awesome" size={22} color={livePanel === 'effects' ? '#C0F93C' : '#FFF'} />
-                                <Text style={styles.liveBottomToolText}>Efeitos</Text>
+                                <MaterialIcons name="auto-awesome" size={20} color="#FFF" />
+                                <Text style={styles.liveActionText}>Efeitos</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.liveBottomTool} onPress={() => toggleLivePanel('filters')}>
-                                <MaterialIcons name="filter-vintage" size={22} color={livePanel === 'filters' ? '#C0F93C' : '#FFF'} />
-                                <Text style={styles.liveBottomToolText}>Filtros</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.liveBottomTool} onPress={() => toggleLivePanel('settings')}>
-                                <Ionicons name="settings-outline" size={22} color={livePanel === 'settings' ? '#C0F93C' : '#FFF'} />
-                                <Text style={styles.liveBottomToolText}>Mais</Text>
+                            <TouchableOpacity style={styles.liveActionBtn} onPress={clearAllFilters}>
+                                <MaterialIcons name="block" size={20} color="#FF6B6B" />
+                                <Text style={[styles.liveActionText, { color: '#FF6B6B' }]}>Limpar</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -1029,22 +1047,28 @@ export const CreateVideo = () => {
                             disabled={liveStarting}
                         >
                             <Text style={[styles.liveStartButtonText, isLiveOn && styles.liveStopButtonText]}>
-                                {liveStarting
-                                    ? 'Conectando…'
-                                    : isLiveOn
-                                      ? 'Encerrar LIVE'
-                                      : 'Iniciar LIVE'}
+                                {liveStarting ? 'Conectando…' : isLiveOn ? 'Encerrar LIVE' : 'Iniciar LIVE'}
                             </Text>
                         </TouchableOpacity>
 
                         <View style={styles.bottomMenu}>
                             <TouchableOpacity
                                 style={styles.bottomMenuItem}
-                                onPress={() => Alert.alert('Publicação', 'Use o modo CRIAR para postar no feed.')}
+                                onPress={() => {
+                                    setLivePanel(null);
+                                    setCreateMode('create');
+                                }}
                             >
-                                <Text style={styles.bottomMenuText}>PUBLICAÇÃO</Text>
+                                <Text style={styles.bottomMenuText}>CÂMERA</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.bottomMenuItem} onPress={() => setCreateMode('create')}>
+                            <TouchableOpacity
+                                style={styles.bottomMenuItem}
+                                onPress={() => {
+                                    setLivePanel(null);
+                                    setCreateMode('create');
+                                    setShowGalleryModal(true);
+                                }}
+                            >
                                 <Text style={styles.bottomMenuText}>CRIAR</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.bottomMenuItem}>
@@ -1062,16 +1086,16 @@ export const CreateVideo = () => {
         return renderLiveScreen();
     }
 
-    const topInset = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 8 : 54;
+    const topInset = safe.paddingTop;
+    const bottomInset = Math.max(safe.insets.bottom, 10);
     const timerLabel = timerDelay === 0 ? '' : `${timerDelay}s`;
 
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-            {/* Preview em flex:1 — mais estável que absoluteFill no device */}
+            {/* Sem key dinâmica: remount no meio do recordAsync causa "Camera unmounted" */}
             <CameraView
-                key={`cam-${facing}`}
                 style={styles.camera}
                 facing={facing}
                 mode="video"
@@ -1096,16 +1120,13 @@ export const CreateVideo = () => {
                 beauty={beautyConfig}
                 faceEffect={faceEffect}
                 facing={facing}
+                interactive={false}
             />
 
-            <View style={styles.cameraOverlay} pointerEvents="box-none">
-                <View style={[styles.header, { paddingTop: topInset }]} pointerEvents="box-none">
-                    <TouchableOpacity
-                        onPress={() => navigate('Home')}
-                        style={styles.closeButton}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                        <Ionicons name="close" size={28} color="#FFFFFF" />
+            <View style={styles.floatingChrome} pointerEvents="box-none">
+                <View style={[styles.topChrome, { paddingTop: topInset }]}>
+                    <TouchableOpacity onPress={exitCamera} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={26} color="#FFFFFF" />
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.addSoundButton} activeOpacity={0.85}>
@@ -1113,65 +1134,50 @@ export const CreateVideo = () => {
                         <Text style={styles.addSoundText}>Adicionar som</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={styles.refreshButton}
-                        onPress={toggleCameraFacing}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
+                    <TouchableOpacity style={styles.refreshButton} onPress={toggleCameraFacing}>
                         <Ionicons name="camera-reverse" size={26} color="#FFFFFF" />
                     </TouchableOpacity>
                 </View>
 
-                <View style={[styles.sideOptions, { top: topInset + 72 }]}>
-                    <TouchableOpacity style={[styles.sideOption, torchOn && styles.sideOptionActive]} onPress={toggleTorch}>
-                        <Ionicons name={torchOn ? 'flash' : 'flash-off'} size={22} color={torchOn ? '#111111' : '#FFFFFF'} />
+                <View style={[styles.sideOptions, { top: topInset + 70 }]}>
+                    <TouchableOpacity style={[styles.sideOption, styles.sideOptionBg, torchOn && styles.sideOptionActive]} onPress={toggleTorch}>
+                        <Ionicons name={torchOn ? 'flash' : 'flash-off'} size={22} color={torchOn ? '#111' : '#FFF'} />
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.sideOption, timerDelay > 0 && styles.sideOptionActive]} onPress={cycleTimer}>
-                        <MaterialIcons name="timer" size={22} color={timerDelay > 0 ? '#111111' : '#FFFFFF'} />
+                    <TouchableOpacity style={[styles.sideOption, styles.sideOptionBg, timerDelay > 0 && styles.sideOptionActive]} onPress={cycleTimer}>
+                        <MaterialIcons name="timer" size={22} color={timerDelay > 0 ? '#111' : '#FFF'} />
                         {timerDelay > 0 && <Text style={styles.sideOptionBadge}>{timerLabel}</Text>}
                     </TouchableOpacity>
 
-                    {sideExpanded && (
-                        <>
-                            <View style={styles.divider} />
-
-                            <TouchableOpacity
-                                style={[styles.sideOption, (beautyOn || showCreateFilters) && styles.sideOptionActive]}
-                                onPress={() => {
-                                    setShowCreateFilters((v) => !v);
-                                    setBeautyOn(true);
-                                }}
-                            >
-                                <MaterialIcons name="auto-fix-high" size={22} color={beautyOn || showCreateFilters ? '#111111' : '#FFFFFF'} />
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.sideOption, faceEffect !== 'none' && styles.sideOptionActive]}
-                                onPress={() => setShowCreateFilters(true)}
-                            >
-                                <MaterialIcons name="auto-awesome" size={22} color={faceEffect !== 'none' ? '#111111' : '#FFFFFF'} />
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.sideOption, mirrorOn && styles.sideOptionActive]}
-                                onPress={() => setMirrorOn(v => !v)}
-                            >
-                                <MaterialCommunityIcons name="mirror" size={22} color={mirrorOn ? '#111111' : '#FFFFFF'} />
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={styles.sideOption}
-                                onPress={() => Alert.alert('Convidar', 'Em breve você poderá convidar amigos para a gravação.')}
-                            >
-                                <MaterialIcons name="person-add" size={22} color="#FFFFFF" />
-                            </TouchableOpacity>
-                        </>
-                    )}
-
-                    <TouchableOpacity style={styles.sideOption} onPress={() => setSideExpanded(v => !v)}>
-                        <Ionicons name={sideExpanded ? 'chevron-up' : 'chevron-down'} size={22} color="#FFFFFF" />
+                    <TouchableOpacity
+                        style={[styles.sideOption, styles.sideOptionBg, (beautyOn || createPanel === 'beauty') && styles.sideOptionActive]}
+                        onPress={() => {
+                            setBeautyOn(true);
+                            toggleCreatePanel('beauty');
+                        }}
+                    >
+                        <MaterialIcons name="auto-fix-high" size={22} color={beautyOn || createPanel === 'beauty' ? '#111' : '#FFF'} />
                     </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.sideOption, styles.sideOptionBg, (filterId !== 'normal' || createPanel === 'filters') && styles.sideOptionActive]}
+                        onPress={() => toggleCreatePanel('filters')}
+                    >
+                        <MaterialIcons name="filter-vintage" size={22} color={filterId !== 'normal' || createPanel === 'filters' ? '#111' : '#FFF'} />
+                    </TouchableOpacity>
+                    <Text style={styles.sideOptionLabel}>Filtros</Text>
+
+                    <TouchableOpacity
+                        style={[styles.sideOption, styles.sideOptionBg, (faceEffect !== 'none' || createPanel === 'effects') && styles.sideOptionActive]}
+                        onPress={() => toggleCreatePanel('effects')}
+                    >
+                        <MaterialIcons name="auto-awesome" size={22} color={faceEffect !== 'none' || createPanel === 'effects' ? '#111' : '#FFF'} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={[styles.sideOption, styles.sideOptionBg]} onPress={clearAllFilters}>
+                        <MaterialIcons name="block" size={22} color="#FF6B6B" />
+                    </TouchableOpacity>
+                    <Text style={styles.sideOptionLabel}>Limpar</Text>
                 </View>
 
                 {countdown !== null && (
@@ -1187,58 +1193,88 @@ export const CreateVideo = () => {
                     </View>
                 )}
 
-                {!cameraReady && (
-                    <View style={styles.cameraStatusPill} pointerEvents="none">
-                        <Text style={styles.cameraStatusText}>Preparando câmera…</Text>
+                {createPanel && (
+                    <View style={[styles.createSheet, { bottom: 160 + bottomInset }]}>
+                        {createPanel === 'filters' && (
+                            <FilterPicker
+                                selectedId={filterId}
+                                onSelect={(id) => {
+                                    setFilterId(id);
+                                    if (id === 'normal') setBeautyOn(false);
+                                    else if (id === 'softglow' || id === 'peach') setBeautyOn(true);
+                                }}
+                                onClose={() => setCreatePanel(null)}
+                            />
+                        )}
+                        {createPanel === 'beauty' && (
+                            <BeautyPanel
+                                beauty={beautyConfig}
+                                onChange={(next) => {
+                                    setBeautyConfig(next);
+                                    setBeautyOn(true);
+                                }}
+                                onClose={() => setCreatePanel(null)}
+                            />
+                        )}
+                        {createPanel === 'effects' && (
+                            <EffectsPanel
+                                selectedId={faceEffect}
+                                onSelect={applyFaceEffect}
+                                onClose={() => setCreatePanel(null)}
+                            />
+                        )}
                     </View>
                 )}
 
-                <View style={styles.bottomControls} pointerEvents="box-none">
-                    <View style={styles.durationContainer}>
-                        {([15, 60, 600] as VideoDuration[]).map((value) => (
-                            <TouchableOpacity
-                                key={value}
-                                style={[styles.durationButton, duration === value && styles.durationButtonActive]}
-                                onPress={() => setDuration(value)}
-                            >
-                                <Text style={[styles.durationText, duration === value && styles.durationTextActive]}>
-                                    {value === 600 ? '10m' : `${value}s`}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-
+                <View style={[styles.bottomControls, { paddingBottom: bottomInset }]}>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.modeStrip}
+                        style={styles.modeStripScroll}
+                    >
+                        {([600, 60, 15] as VideoDuration[]).map((value) => {
+                            const active = captureMode === 'video' && duration === value;
+                            return (
+                                <TouchableOpacity
+                                    key={value}
+                                    style={[styles.modeChip, active && styles.modeChipActive]}
+                                    onPress={() => {
+                                        setCaptureMode('video');
+                                        setDuration(value);
+                                    }}
+                                >
+                                    <Text style={[styles.modeChipText, active && styles.modeChipTextActive]}>
+                                        {value === 600 ? '10 min' : `${value} s`}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
                         <TouchableOpacity
-                            style={[styles.captureModeButton, captureMode === 'photo' && styles.captureModeButtonActive]}
+                            style={[styles.modeChip, captureMode === 'photo' && styles.modeChipActive]}
                             onPress={() => setCaptureMode('photo')}
                         >
-                            <Text style={[styles.captureModeText, captureMode === 'photo' && styles.captureModeTextActive]}>
+                            <Text style={[styles.modeChipText, captureMode === 'photo' && styles.modeChipTextActive]}>
                                 FOTO
                             </Text>
                         </TouchableOpacity>
+                    </ScrollView>
 
-                        <TouchableOpacity
-                            style={[styles.captureModeButton, captureMode === 'video' && styles.captureModeButtonActive]}
-                            onPress={() => setCaptureMode('video')}
-                        >
-                            <Text style={[styles.captureModeText, captureMode === 'video' && styles.captureModeTextActive]}>
-                                VÍDEO
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.captureContainer}>
-                        <TouchableOpacity style={styles.galleryButton} onPress={() => setShowGalleryModal(true)}>
-                            {capturedMedia[0] ? (
-                                <Image source={{ uri: capturedMedia[0].uri }} style={styles.galleryThumb} />
-                            ) : (
-                                <MaterialIcons name="photo-library" size={22} color="#FFFFFF" />
-                            )}
-                            {capturedMedia.length > 0 && (
-                                <View style={styles.galleryBadge}>
-                                    <Text style={styles.galleryBadgeText}>{capturedMedia.length}</Text>
-                                </View>
-                            )}
-                        </TouchableOpacity>
+                    <View style={styles.captureRow}>
+                        <View style={styles.captureSide}>
+                            <TouchableOpacity style={styles.galleryButton} onPress={() => setShowGalleryModal(true)}>
+                                {capturedMedia[0] ? (
+                                    <Image source={{ uri: capturedMedia[0].uri }} style={styles.galleryThumb} />
+                                ) : (
+                                    <MaterialIcons name="photo-library" size={22} color="#FFFFFF" />
+                                )}
+                                {capturedMedia.length > 0 && (
+                                    <View style={styles.galleryBadge}>
+                                        <Text style={styles.galleryBadgeText}>{capturedMedia.length}</Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        </View>
 
                         <TouchableOpacity
                             style={[styles.captureButton, isRecording && styles.captureButtonRecording]}
@@ -1248,56 +1284,38 @@ export const CreateVideo = () => {
                             <View style={[styles.captureButtonInner, isRecording && styles.captureButtonInnerRecording]} />
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.flipButton} onPress={toggleCameraFacing}>
-                            <Ionicons name="camera-reverse" size={26} color="#FFFFFF" />
-                        </TouchableOpacity>
+                        <View style={styles.captureSide}>
+                            <TouchableOpacity
+                                style={styles.flipButton}
+                                onPress={toggleCameraFacing}
+                                disabled={isRecording}
+                            >
+                                <Ionicons name="camera-reverse" size={26} color={isRecording ? '#666' : '#FFFFFF'} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
-                    {showCreateFilters && (
-                        <ScrollView style={styles.createFiltersSheet} keyboardShouldPersistTaps="handled">
-                            <FilterPicker
-                                selectedId={filterId}
-                                onSelect={(id) => {
-                                    setFilterId(id);
-                                    setBeautyOn(true);
-                                }}
-                            />
-                            <BeautyPanel
-                                beauty={beautyConfig}
-                                onChange={(next) => {
-                                    setBeautyConfig(next);
-                                    setBeautyOn(true);
-                                }}
-                            />
-                            <EffectsPanel selectedId={faceEffect} onSelect={setFaceEffect} />
-                            <TouchableOpacity
-                                style={styles.createFiltersClose}
-                                onPress={() => setShowCreateFilters(false)}
-                            >
-                                <Text style={styles.createFiltersCloseText}>Fechar</Text>
-                            </TouchableOpacity>
-                        </ScrollView>
-                    )}
-
                     <View style={styles.bottomMenu}>
-                        <TouchableOpacity style={styles.bottomMenuItem} onPress={() => setShowGalleryModal(true)}>
-                            <Text style={styles.bottomMenuText}>PUBLICAÇÃO</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.bottomMenuItem} onPress={() => setCreateMode('create')}>
-                            <Text style={[styles.bottomMenuText, createMode === 'create' && styles.bottomMenuTextActive]}>
-                                CRIAR
-                            </Text>
-                        </TouchableOpacity>
-
                         <TouchableOpacity
                             style={styles.bottomMenuItem}
                             onPress={() => {
-                                setDeepArFailed(false);
-                                setDeepArRemountKey((k) => k + 1);
-                                setCreateMode('live');
+                                setCreatePanel(null);
+                                setCreateMode('create');
                             }}
                         >
+                            <Text style={[styles.bottomMenuText, styles.bottomMenuTextActive]}>CÂMERA</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.bottomMenuItem}
+                            onPress={() => {
+                                if (isRecordingRef.current) return;
+                                setCreatePanel(null);
+                                setShowGalleryModal(true);
+                            }}
+                        >
+                            <Text style={styles.bottomMenuText}>CRIAR</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.bottomMenuItem} onPress={openLiveMode}>
                             <Text style={styles.bottomMenuText}>LIVE</Text>
                         </TouchableOpacity>
                     </View>

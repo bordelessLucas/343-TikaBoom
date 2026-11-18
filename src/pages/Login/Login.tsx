@@ -65,7 +65,6 @@ export const Login = () => {
         }
 
         try {
-            // Login com Firebase
             await authService.login(formData.email, formData.password);
             
             // Salvar ou remover credenciais baseado no "Manter login"

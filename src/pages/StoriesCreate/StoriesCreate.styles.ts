@@ -37,7 +37,7 @@ export const styles = StyleSheet.create({
     },
     header: {
         position: 'absolute',
-        top: 50,
+        top: 0,
         left: 0,
         right: 0,
         flexDirection: 'row',

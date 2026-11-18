@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '../../routes/NavigationContext';
 import { styles } from './TopBar.styles';
 
@@ -16,6 +17,7 @@ interface TopBarProps {
 
 export const TopBar = ({ activeTab, onTabChange, liveMode, onLiveModeChange }: TopBarProps) => {
     const { navigate, currentScreen } = useNavigation();
+    const insets = useSafeAreaInsets();
 
     const handleTabPress = (tab: TabType) => {
         if (tab === 'forYou' && currentScreen !== 'Home') {
@@ -31,9 +33,10 @@ export const TopBar = ({ activeTab, onTabChange, liveMode, onLiveModeChange }: T
             colors={['rgba(0, 0, 0, 0.85)', 'rgba(0, 0, 0, 0.7)', 'rgba(0, 0, 0, 0.5)', 'transparent']}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
-            style={styles.gradientContainer}
+            pointerEvents="box-none"
+            style={[styles.gradientContainer, { paddingTop: Math.max(insets.top, 8) + 6 }]}
         >
-            <View style={styles.container}>
+            <View style={styles.container} pointerEvents="box-none">
                 <TouchableOpacity
                     style={styles.tab}
                     onPress={() => handleTabPress('forYou')}
@@ -61,8 +64,7 @@ export const TopBar = ({ activeTab, onTabChange, liveMode, onLiveModeChange }: T
                     <MaterialIcons name="search" size={22} color="#FFFFFF" />
                 </TouchableOpacity>
             </View>
-            
-            {/* Sub-menu para alternar entre Lives e Batalhas (apenas quando Lives está ativo) */}
+
             {activeTab === 'lives' && liveMode && onLiveModeChange && (
                 <View style={styles.subMenuContainer}>
                     <TouchableOpacity
@@ -73,7 +75,7 @@ export const TopBar = ({ activeTab, onTabChange, liveMode, onLiveModeChange }: T
                             Lives
                         </Text>
                     </TouchableOpacity>
-                    
+
                     <TouchableOpacity
                         style={[styles.subMenuTab, liveMode === 'battle' && styles.subMenuTabActive]}
                         onPress={() => onLiveModeChange('battle')}
@@ -87,4 +89,3 @@ export const TopBar = ({ activeTab, onTabChange, liveMode, onLiveModeChange }: T
         </LinearGradient>
     );
 };
-

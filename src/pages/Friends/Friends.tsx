@@ -4,14 +4,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { styles } from './Friends.styles';
 import { useNavigation } from '../../routes/NavigationContext';
-import { auth } from '../../lib/firebaseconfig';
+import { auth } from '../../lib/supabase';
 import { usersService, UserProfile } from '../../services/usersService';
 import { authService } from '../../services/authService';
 import { messagesService } from '../../services/messagesService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafePad } from '../../hooks/useSafePad';
 
 export const Friends = () => {
   const { navigate } = useNavigation();
+  const safe = useSafePad();
   const [suggested, setSuggested] = useState<UserProfile[]>([]);
   const [requests, setRequests] = useState<UserProfile[]>([]);
   const [following, setFollowing] = useState<UserProfile[]>([]);
@@ -191,7 +193,7 @@ export const Friends = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
       >
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: safe.paddingTop }]}>
         <TouchableOpacity onPress={() => navigate('Home')} style={styles.iconButton}>
           <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>

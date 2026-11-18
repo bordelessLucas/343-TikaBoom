@@ -67,7 +67,7 @@ export const Register = () => {
         }
 
         try {
-            // Registrar com Firebase (a verificação de username será feita internamente após autenticação)
+            // Registrar com Supabase (username verificado no authService)
             await authService.register(
                 formData.email,
                 formData.password,
@@ -85,13 +85,11 @@ export const Register = () => {
             // Mensagens de erro mais amigáveis
             let errorMessage = error.message || "Erro ao criar conta. Tente novamente.";
             
-            if (error.message?.includes('permission') || error.code === 'permission-denied') {
-                errorMessage = "Erro de permissão. Verifique as regras de segurança do Firestore no Firebase Console. O usuário precisa ter permissão para criar seu próprio perfil.";
-            } else if (error.message?.includes('email-already-in-use') || error.code === 'auth/email-already-in-use') {
+            if (error.message?.includes('já está em uso') || error.message?.includes('already')) {
                 errorMessage = "Este email já está em uso. Tente fazer login ou use outro email.";
-            } else if (error.message?.includes('weak-password') || error.code === 'auth/weak-password') {
+            } else if (error.message?.includes('senha') || error.message?.includes('password')) {
                 errorMessage = "A senha é muito fraca. Use pelo menos 6 caracteres.";
-            } else if (error.message?.includes('invalid-email') || error.code === 'auth/invalid-email') {
+            } else if (error.message?.includes('Email inválido') || error.message?.includes('invalid')) {
                 errorMessage = "Email inválido. Verifique o formato do email.";
             } else if (error.message?.includes('username')) {
                 errorMessage = "Este username já está em uso. Escolha outro.";

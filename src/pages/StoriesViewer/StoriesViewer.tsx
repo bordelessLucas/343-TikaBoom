@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Image, StyleSheet, Dimensions } from 'rea
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '../../routes/NavigationContext';
+import { useSafePad } from '../../hooks/useSafePad';
 
 const { width, height } = Dimensions.get('window');
 
@@ -33,6 +34,7 @@ const MOCK_STORIES: Story[] = [
 
 export const StoriesViewer = () => {
     const { navigate } = useNavigation();
+    const safe = useSafePad(8, 8);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [progress, setProgress] = useState(0);
 
@@ -95,7 +97,7 @@ export const StoriesViewer = () => {
             <View style={styles.overlay} />
 
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, { top: safe.paddingTop + 28 }]}>
                 <View style={styles.userInfo}>
                     <View style={styles.avatarPlaceholder}>
                         <MaterialIcons name="person" size={22} color="#FFFFFF" />
@@ -114,7 +116,7 @@ export const StoriesViewer = () => {
             </View>
 
             {/* Indicadores de progresso mockados */}
-            <View style={styles.progressContainer}>
+            <View style={[styles.progressContainer, { top: safe.paddingTop }]}>
                 {MOCK_STORIES.map((story, index) => (
                     <View key={story.id} style={styles.progressBar}>
                         {index < currentIndex && (
@@ -151,7 +153,6 @@ const styles = StyleSheet.create({
     },
     header: {
         position: 'absolute',
-        top: 80,
         left: 16,
         right: 16,
         flexDirection: 'row',
@@ -198,7 +199,6 @@ const styles = StyleSheet.create({
     },
     progressContainer: {
         position: 'absolute',
-        top: 60,
         left: 10,
         right: 10,
         flexDirection: 'row',

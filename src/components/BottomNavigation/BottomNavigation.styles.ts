@@ -1,6 +1,4 @@
-import { StyleSheet, Dimensions } from 'react-native';
-
-const { width } = Dimensions.get('window');
+import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
     container: {
@@ -8,37 +6,37 @@ export const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        height: 85,
         zIndex: 1000,
     },
     gradient: {
-        flex: 1,
         flexDirection: 'row',
         justifyContent: 'space-around',
         alignItems: 'center',
-        paddingHorizontal: 10,
-        paddingBottom: 10,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.1)',
+        paddingHorizontal: 8,
+        paddingTop: 8,
+        minHeight: 64,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: 'rgba(255,255,255,0.12)',
     },
     navItem: {
         alignItems: 'center',
         justifyContent: 'center',
         flex: 1,
-        gap: 4,
+        gap: 2,
+        minHeight: 48,
     },
     navLabel: {
         color: '#999',
-        fontSize: 11,
+        fontSize: 10,
     },
     navLabelActive: {
         color: '#FFFFFF',
         fontWeight: '600',
     },
     createButton: {
-        width: 50,
-        height: 50,
-        marginBottom:15,
+        width: 48,
+        height: 48,
+        marginBottom: 6,
     },
     createButtonWrapper: {
         width: '100%',
@@ -69,18 +67,17 @@ export const styles = StyleSheet.create({
         right: -8,
         backgroundColor: '#FF0000',
         borderRadius: 10,
-        minWidth: 20,
-        height: 20,
+        minWidth: 18,
+        height: 18,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 6,
+        paddingHorizontal: 5,
         borderWidth: 2,
         borderColor: '#000000',
     },
     unreadBadgeText: {
         color: '#FFFFFF',
-        fontSize: 11,
+        fontSize: 10,
         fontWeight: 'bold',
     },
 });
-

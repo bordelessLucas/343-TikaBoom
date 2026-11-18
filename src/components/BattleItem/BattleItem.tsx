@@ -5,6 +5,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'react-native';
 import { styles } from './BattleItem.styles';
+import {
+    GiftEffectOverlay,
+    type GiftEffectPayload,
+} from '../GiftEffectOverlay/GiftEffectOverlay';
 
 interface Gift {
     id: string;
@@ -142,6 +146,7 @@ export const BattleItem = ({
     const [showGiftsModal, setShowGiftsModal] = useState(false);
     const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
     const [selectedSide, setSelectedSide] = useState<'A' | 'B' | null>(null);
+    const [giftEffect, setGiftEffect] = useState<GiftEffectPayload | null>(null);
     const [displayScoreA, setDisplayScoreA] = useState(0);
     const [displayScoreB, setDisplayScoreB] = useState(0);
     const [displayProgressA, setDisplayProgressA] = useState(0);
@@ -282,9 +287,21 @@ export const BattleItem = ({
         setShowGiftsModal(false);
         setSelectedGift(null);
         setSelectedSide(null);
-        
-        // Envia mensagem no chat sobre o presente
+
         const streamerName = side === 'A' ? streamerA.name : streamerB.name;
+        const isRealGift =
+            gift.name.toLowerCase().includes('presente') || gift.id === '47';
+
+        // Efeito central estilo TikTok
+        setGiftEffect({
+            id: `${gift.id}_${Date.now()}`,
+            name: gift.name,
+            imageUri: gift.imageUri,
+            senderName: 'Você',
+            targetName: streamerName,
+            isRealGift,
+        });
+
         onSendMessage(`Enviou ${gift.name} para ${streamerName}!`);
     };
 
@@ -670,6 +687,11 @@ export const BattleItem = ({
                     </TouchableOpacity>
                 </View>
             </Modal>
+
+            <GiftEffectOverlay
+                gift={giftEffect}
+                onFinished={() => setGiftEffect(null)}
+            />
         </View>
     );
 };

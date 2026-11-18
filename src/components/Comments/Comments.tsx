@@ -1,9 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Modal, Dimensions, Alert, Platform, KeyboardAvoidingView } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import {
+    View,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    StyleSheet,
+    ScrollView,
+    Modal,
+    Dimensions,
+    Alert,
+    Platform,
+    KeyboardAvoidingView,
+    Pressable,
+    ActivityIndicator,
+} from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { auth } from '../../lib/firebaseconfig';
-import { postsService, Comment as FirebaseComment } from '../../services/postsService';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { auth } from '../../lib/supabase';
+import { postsService } from '../../services/postsService';
 import { authService } from '../../services/authService';
 
 interface Comment {
@@ -19,12 +33,13 @@ interface CommentsProps {
     onClose: () => void;
     comments: Comment[];
     videoId: string;
-    postId?: string; // ID do post no Firebase
+    postId?: string;
 }
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
-export const Comments = ({ visible, onClose, comments: initialComments, videoId, postId }: CommentsProps) => {
+export const Comments = ({ visible, onClose, comments: initialComments, postId }: CommentsProps) => {
+    const insets = useSafeAreaInsets();
     const [newComment, setNewComment] = useState('');
     const [comments, setComments] = useState<Comment[]>(initialComments);
     const [loading, setLoading] = useState(false);
@@ -39,21 +54,19 @@ export const Comments = ({ visible, onClose, comments: initialComments, videoId,
 
     const loadComments = async () => {
         if (!postId) return;
-        
+
         try {
             setLoading(true);
-            const firebaseComments = await postsService.getPostComments(postId);
-            
-            // Converter comentários do Firebase para formato do componente
-            const formattedComments: Comment[] = firebaseComments.map(comment => ({
-                id: comment.id,
-                username: comment.authorUsername,
-                text: comment.text,
-                likes: comment.likes,
-                timeAgo: formatTimeAgo(comment.createdAt),
-            }));
-            
-            setComments(formattedComments);
+            const remoteComments = await postsService.getPostComments(postId);
+            setComments(
+                remoteComments.map((comment) => ({
+                    id: comment.id,
+                    username: comment.authorUsername,
+                    text: comment.text,
+                    likes: comment.likes,
+                    timeAgo: formatTimeAgo(comment.createdAt),
+                }))
+            );
         } catch (error) {
             console.error('Erro ao carregar comentários:', error);
         } finally {
@@ -99,10 +112,7 @@ export const Comments = ({ visible, onClose, comments: initialComments, videoId,
             });
 
             setNewComment('');
-            // Aguardar um pouco antes de recarregar para garantir que o Firestore atualizou
-            setTimeout(async () => {
-                await loadComments();
-            }, 500);
+            await loadComments();
         } catch (error: any) {
             console.error('Erro ao adicionar comentário:', error);
             Alert.alert('Erro', error.message || 'Não foi possível adicionar comentário');
@@ -112,89 +122,105 @@ export const Comments = ({ visible, onClose, comments: initialComments, videoId,
     };
 
     return (
-        <Modal
-            visible={visible}
-            transparent
-            animationType="slide"
-            onRequestClose={onClose}
-        >
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <View style={styles.modalContainer}>
-                <KeyboardAvoidingView
-                    style={{ flex: 1, justifyContent: 'flex-end' }}
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
-                >
-                <LinearGradient
-                    colors={['rgba(0,0,0,0.9)', 'rgba(0,0,0,0.95)']}
-                    style={styles.modalContent}
-                >
-                    <View style={styles.header}>
-                        <Text style={styles.headerTitle}>{comments.length} comentários</Text>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                            <MaterialIcons name="close" size={24} color="#FFFFFF" />
-                        </TouchableOpacity>
-                    </View>
+                <Pressable style={styles.backdrop} onPress={onClose} />
 
-                    <ScrollView
-                        style={styles.commentsList}
-                        keyboardShouldPersistTaps="handled"
-                        keyboardDismissMode="on-drag"
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    keyboardVerticalOffset={0}
+                >
+                    <View
+                        style={[
+                            styles.sheet,
+                            {
+                                height: height * 0.62,
+                                paddingBottom: Math.max(insets.bottom, 10),
+                            },
+                        ]}
                     >
-                        {loading && (
-                            <View style={styles.loadingContainer}>
-                                <Text style={styles.loadingText}>Carregando comentários...</Text>
-                            </View>
-                        )}
-                        {!loading && comments.length === 0 && (
-                            <View style={styles.emptyContainer}>
-                                <Text style={styles.emptyText}>Nenhum comentário ainda</Text>
-                                <Text style={styles.emptySubtext}>Seja o primeiro a comentar!</Text>
-                            </View>
-                        )}
-                        {comments.map((comment) => (
-                            <View key={comment.id} style={styles.commentItem}>
-                                <View style={styles.commentHeader}>
-                                    <Text style={styles.commentUsername}>@{comment.username}</Text>
-                                    <Text style={styles.commentTime}>{comment.timeAgo}</Text>
+                        <View style={styles.handle} />
+
+                        <View style={styles.header}>
+                            <Text style={styles.headerTitle}>
+                                {comments.length} comentário{comments.length === 1 ? '' : 's'}
+                            </Text>
+                            <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={12}>
+                                <MaterialIcons name="close" size={22} color="#161823" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView
+                            style={styles.commentsList}
+                            contentContainerStyle={styles.commentsContent}
+                            keyboardShouldPersistTaps="handled"
+                            keyboardDismissMode="on-drag"
+                            showsVerticalScrollIndicator={false}
+                        >
+                            {loading && comments.length === 0 && (
+                                <View style={styles.loadingContainer}>
+                                    <ActivityIndicator color="#161823" />
                                 </View>
-                                <Text style={styles.commentText}>{comment.text}</Text>
-                                <View style={styles.commentFooter}>
-                                    <TouchableOpacity style={styles.commentActions}>
-                                        <Ionicons name="heart-outline" size={16} color="#FFFFFF" />
-                                        <Text style={styles.likeCount}>{comment.likes}</Text>
+                            )}
+                            {!loading && comments.length === 0 && (
+                                <View style={styles.emptyContainer}>
+                                    <Text style={styles.emptyText}>Nenhum comentário ainda</Text>
+                                    <Text style={styles.emptySubtext}>Seja o primeiro a comentar</Text>
+                                </View>
+                            )}
+                            {comments.map((comment) => (
+                                <View key={comment.id} style={styles.commentItem}>
+                                    <View style={styles.avatar}>
+                                        <Text style={styles.avatarText}>
+                                            {(comment.username || '?').charAt(0).toUpperCase()}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.commentBody}>
+                                        <Text style={styles.commentUsername}>{comment.username}</Text>
+                                        <Text style={styles.commentText}>{comment.text}</Text>
+                                        <View style={styles.commentMeta}>
+                                            <Text style={styles.commentTime}>{comment.timeAgo}</Text>
+                                            <TouchableOpacity>
+                                                <Text style={styles.replyText}>Responder</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                    <TouchableOpacity style={styles.likeColumn}>
+                                        <Ionicons name="heart-outline" size={16} color="#8A8B91" />
+                                        <Text style={styles.likeCount}>{comment.likes || ''}</Text>
                                     </TouchableOpacity>
                                 </View>
-                            </View>
-                        ))}
-                    </ScrollView>
+                            ))}
+                        </ScrollView>
 
-                    <View style={styles.inputContainer}>
-                        <View style={styles.inputWrapper}>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Adicionar comentário..."
-                                placeholderTextColor="#999"
-                                value={newComment}
-                                onChangeText={setNewComment}
-                                multiline
-                                onSubmitEditing={handleAddComment}
-                            />
-                            <View style={styles.inputIcons}>
-                                <TouchableOpacity 
+                        <View style={styles.inputContainer}>
+                            <View style={styles.inputWrapper}>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Adicionar comentário..."
+                                    placeholderTextColor="#8A8B91"
+                                    value={newComment}
+                                    onChangeText={setNewComment}
+                                    multiline
+                                    maxLength={500}
+                                />
+                                <TouchableOpacity
                                     style={styles.sendButton}
                                     onPress={handleAddComment}
-                                    disabled={!newComment.trim()}
+                                    disabled={!newComment.trim() || loading}
                                 >
-                                    <Ionicons 
-                                        name="send" 
-                                        size={20} 
-                                        color={newComment.trim() ? "#C0F93C" : "rgba(255,255,255,0.3)"} 
-                                    />
+                                    <Text
+                                        style={[
+                                            styles.sendText,
+                                            (!newComment.trim() || loading) && styles.sendTextDisabled,
+                                        ]}
+                                    >
+                                        Publicar
+                                    </Text>
                                 </TouchableOpacity>
                             </View>
                         </View>
                     </View>
-                </LinearGradient>
                 </KeyboardAvoidingView>
             </View>
         </Modal>
@@ -206,130 +232,165 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'flex-end',
     },
-    modalContent: {
-        height: height * 0.7,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        paddingTop: 20,
+    backdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.45)',
+    },
+    sheet: {
+        backgroundColor: '#FFFFFF',
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
+        overflow: 'hidden',
+    },
+    handle: {
+        alignSelf: 'center',
+        width: 36,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: '#D0D1D3',
+        marginTop: 8,
+        marginBottom: 4,
     },
     header: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingBottom: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.1)',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: '#E8E8E8',
     },
     headerTitle: {
-        color: '#FFFFFF',
-        fontSize: 18,
-        fontWeight: 'bold',
+        color: '#161823',
+        fontSize: 15,
+        fontWeight: '700',
     },
     closeButton: {
-        width: 30,
-        height: 30,
+        position: 'absolute',
+        right: 12,
+        width: 32,
+        height: 32,
         justifyContent: 'center',
         alignItems: 'center',
     },
     commentsList: {
         flex: 1,
-        paddingHorizontal: 20,
+    },
+    commentsContent: {
+        paddingHorizontal: 16,
+        paddingBottom: 8,
     },
     commentItem: {
-        paddingVertical: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
-    },
-    commentHeader: {
         flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 5,
-    },
-    commentUsername: {
-        color: '#FFFFFF',
-        fontSize: 14,
-        fontWeight: 'bold',
-    },
-    commentText: {
-        color: '#FFFFFF',
-        fontSize: 14,
-        marginBottom: 8,
-    },
-    commentFooter: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    commentTime: {
-        color: '#999',
-        fontSize: 12,
-    },
-    commentActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        paddingVertical: 12,
         gap: 10,
     },
-    likeCount: {
-        color: '#FFFFFF',
-        fontSize: 12,
-        marginLeft: 5,
+    avatar: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#F1F1F2',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    dislikeIcon: {
-        marginLeft: 10,
+    avatarText: {
+        color: '#161823',
+        fontWeight: '700',
+        fontSize: 14,
+    },
+    commentBody: {
+        flex: 1,
+        paddingRight: 8,
+    },
+    commentUsername: {
+        color: '#8A8B91',
+        fontSize: 13,
+        fontWeight: '600',
+        marginBottom: 2,
+    },
+    commentText: {
+        color: '#161823',
+        fontSize: 14,
+        lineHeight: 20,
+    },
+    commentMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        marginTop: 6,
+    },
+    commentTime: {
+        color: '#8A8B91',
+        fontSize: 12,
+    },
+    replyText: {
+        color: '#8A8B91',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    likeColumn: {
+        alignItems: 'center',
+        paddingTop: 2,
+        minWidth: 24,
+    },
+    likeCount: {
+        color: '#8A8B91',
+        fontSize: 11,
+        marginTop: 2,
     },
     inputContainer: {
-        padding: 20,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.1)',
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: '#E8E8E8',
+        paddingHorizontal: 12,
+        paddingTop: 10,
+        backgroundColor: '#FFFFFF',
     },
     inputWrapper: {
         flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        borderRadius: 25,
-        paddingHorizontal: 15,
-        paddingVertical: 10,
+        alignItems: 'flex-end',
+        backgroundColor: '#F1F1F2',
+        borderRadius: 22,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        minHeight: 44,
     },
     input: {
         flex: 1,
-        color: '#FFFFFF',
+        color: '#161823',
         fontSize: 14,
         maxHeight: 100,
-    },
-    inputIcons: {
-        flexDirection: 'row',
-        gap: 10,
-    },
-    iconButton: {
-        padding: 5,
+        paddingTop: Platform.OS === 'ios' ? 6 : 4,
+        paddingBottom: Platform.OS === 'ios' ? 6 : 4,
     },
     sendButton: {
-        padding: 5,
-        marginLeft: 10,
+        paddingLeft: 10,
+        paddingBottom: 4,
+    },
+    sendText: {
+        color: '#FE2C55',
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    sendTextDisabled: {
+        color: '#C6C7C9',
     },
     loadingContainer: {
         padding: 40,
         alignItems: 'center',
     },
-    loadingText: {
-        color: 'rgba(255,255,255,0.7)',
-        fontSize: 14,
-    },
     emptyContainer: {
-        padding: 40,
+        padding: 48,
         alignItems: 'center',
     },
     emptyText: {
-        color: 'rgba(255,255,255,0.7)',
+        color: '#161823',
         fontSize: 16,
         fontWeight: '600',
-        marginTop: 12,
     },
     emptySubtext: {
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: 14,
-        marginTop: 4,
+        color: '#8A8B91',
+        fontSize: 13,
+        marginTop: 6,
     },
 });
 
